@@ -11,9 +11,9 @@ import multiprocessing as mp
 import numpy as np
 import hashlib
 import pandas as pd
+from . import logloader
 from collections import defaultdict
 from datetime import datetime
-from utils import logloader
 import shutil
 
 class LogParser(object):

@@ -53,13 +53,12 @@ class Ziplog():
         self.para_df["EventId"].to_csv(os.path.join(self.tmp_dir, "EventId" + "_" + str(0) + ".csv"),
                              index=False)
         t2 = time.time()
-        self.io_time = t2 - t1
+        self.io_time += t2 - t1
 
         del splited_df
         gc.collect()
 
     def zip_content(self):
-        # 存模板映射
         template_mapping = dict(zip(self.para_df["EventId"], self.para_df["EventTemplate"]))
         with open(os.path.join(self.tmp_dir, "template_mapping.json"), "w") as fw:
             json.dump(template_mapping, fw)
@@ -145,10 +144,10 @@ class Ziplog():
         t1 = time.time()
         self.zip_folder(zipname=self.outname)
         t2 = time.time()
-        self.io_time = t2 - t1
+        self.io_time += t2 - t1
         print("Zip folder done. Time taken: {:.2f}s".format(t2-t1))
 
-    def zip_file(self, outname, filename, para_file_path=None, para_df=None):
+    def zip_file(self, outname, filename, para_file_path=None, para_df=None, delete_tmp=True):
         self.outname = outname
         self.tmp_dir = os.path.join(self.outdir, filename + "_tmp")
 
@@ -164,6 +163,8 @@ class Ziplog():
         self.zip_para_df()
         t3 = time.time()
         print("Zip log done, Time taken: all: {:.2f}s, IO: {:.2f}s, real: {:.2f}s".format(t3-t1, self.io_time, t3-t1-self.io_time))
+        if delete_tmp:
+            shutil.rmtree(self.tmp_dir)
     
 
 def baseN(num, b):
@@ -213,17 +214,3 @@ def files_to_tar(filepaths, kernel):
         elif kernel == "lzma":
             os.system('lzma -k {}'.format(filepath)) 
 
-if __name__ == "__main__":
-    n_workers = 2
-    # indir = "../logs"
-    # outdir = "../BGL_all_out/"
-    # outname = "HDFS_out_splited"
-    # para_file = "BGL.log_1000MB_structured.csv"
-
-    indir = "../logs"
-    outdir = "../HDFS_all_out/"
-    outname = "HDFS_out_splited"
-    para_file = "HDFS.log_100MB_structured.csv"
-
-    zipper = Ziplog(outdir=outdir, n_workers=n_workers)
-    zipper.zip_file(os.path.join(indir, para_file))

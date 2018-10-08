@@ -15,7 +15,8 @@ import shutil
 
 
 class Unziplog():
-    def __init__(self, outdir, log_format, n_workers, kernel="lzma"):
+    def __init__(self, indir, outdir, log_format, n_workers, kernel="gz"):
+        self.indir = indir
         self.outdir = outdir
         self.n_workers = n_workers
         self.log_format = log_format
@@ -24,7 +25,8 @@ class Unziplog():
         self.headers = [item.strip('<>') for idx, item in enumerate(re.split(r'(<[^<>]+>)', log_format)) if idx % 2 != 0]
 
 
-    def unzip(self, filename, outname):
+    def unzip(self, filename, outname, delete_tmp=True):
+        filename = os.path.join(self.indir, filename)
         self.tmp_dir = os.path.join(self.outdir, os.path.basename(filename) + "_unzip_tmp")
         if os.path.isdir(self.tmp_dir):
             shutil.rmtree(self.tmp_dir)
@@ -56,6 +58,9 @@ class Unziplog():
         t1 = time.time()
         self.dump_normal()
         t2 = time.time()
+        
+        if delete_tmp:
+            shutil.rmtree(self.tmp_dir)
 
     def extract_all(self):
         if self.kernel == "lzma":
