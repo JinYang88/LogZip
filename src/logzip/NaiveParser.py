@@ -17,7 +17,7 @@ from datetime import datetime
 import shutil
 
 class LogParser(object):
-    def __init__(self, indir, outdir, log_format, top_event=100, rex=[], n_workers=1):
+    def __init__(self, indir, outdir, log_format, top_event=2000, rex=[], n_workers=1):
         self.indir = indir
         self.outdir = outdir
         self.log_format = log_format
@@ -72,7 +72,7 @@ class LogParser(object):
 
         self.template_eid_mapping = {evt: "E"+str(idx) for idx, evt in enumerate(self.log_dataframe['EventTemplate'].unique())}
         self.log_dataframe['EventId'] = self.log_dataframe['EventTemplate'].map(lambda x: self.template_eid_mapping[x])
-        self.log_dataframe.drop(["LineId", "Content"], axis=1, inplace=True)
+        self.log_dataframe.drop(["LineId"], axis=1, inplace=True)
             
     def dump(self, logname):
         self.log_dataframe.to_csv(os.path.join(self.outdir, logname + '_structured.csv'), index=False)

@@ -4,7 +4,6 @@ import os
 import tarfile
 import glob
 import multiprocessing as mp
-import numpy as np
 import re
 import json
 import pickle
@@ -18,11 +17,18 @@ from collections import defaultdict
 split_regex = re.compile("([^a-zA-Z0-9]+)")
 
 class Ziplog():
-    def __init__(self, outdir, n_workers, kernel="gz"):
+    def __init__(self, outdir, n_workers, kernel="gz", level=3):
         self.outdir = outdir
         self.n_workers = n_workers
         self.kernel = kernel
         self.io_time = 0
+        self.level = level
+
+    def directly_zip(self):
+        ignore_columns = ["LineId", "EventTemplate", "ParameterList", "EventId"]
+        focus_columns = [col for col in self.para_df.columns if col not in ignore_columns]
+        for column in focus_columns:
+            self.para_df[column].to_csv(os.path.join(self.tmp_dir, column+"_0.csv"), index=False)
 
     def zip_normal(self):
         ignore_columns = ["LineId", "EventTemplate", "ParameterList", "EventId"]
@@ -90,26 +96,29 @@ class Ziplog():
         del self.para_df
         gc.collect()
 
-        print("Indexing parameters.")
-        t1 = time.time()
-        para_idx = 1
-        para_idx_dict = {}
-        idx_para_dict = {}
-        para_idx_dict[""] = "0"
-        idx_para_dict["0"] = ""
-        for filename, para_lists in filename_para_dict.items():
-            for para_list in para_lists:
-                for para in para_list:
-                    if para not in para_idx_dict:
-                        idx_64 = baseN((para_idx), 64)
-                        para_idx_dict[para] = idx_64
-                        idx_para_dict[idx_64] = para
-                        para_idx += 1
-        t2 = time.time()
-        with open(os.path.join(self.tmp_dir, "parameter_mapping.json"), "w") as fw:
-            json.dump(idx_para_dict, fw)
-        print("Indexing parameters done. Time taken {:.2f}s".format(t2 - t1))
-    
+        if self.level == 3:
+            print("Indexing parameters.")
+            t1 = time.time()
+            para_idx = 1
+            para_idx_dict = {}
+            idx_para_dict = {}
+            para_idx_dict[""] = "0"
+            idx_para_dict["0"] = ""
+            for filename, para_lists in filename_para_dict.items():
+                for para_list in para_lists:
+                    for para in para_list:
+                        if para not in para_idx_dict:
+                            idx_64 = baseN((para_idx), 64)
+                            para_idx_dict[para] = idx_64
+                            idx_para_dict[idx_64] = para
+                            para_idx += 1
+            t2 = time.time()
+            with open(os.path.join(self.tmp_dir, "parameter_mapping.json"), "w") as fw:
+                json.dump(idx_para_dict, fw)
+            print("Indexing parameters done. Time taken {:.2f}s".format(t2 - t1))
+        else:
+            para_idx_dict = None
+
         print("Saving parameters.")
         t1 = time.time()
         save_para(filename_para_dict, self.tmp_dir, para_idx_dict)
@@ -132,13 +141,16 @@ class Ziplog():
             tarall.close()
 
     def zip_para_df(self):
-        self.zip_normal()
-
-        print("Zip content begin.")
-        t1 = time.time()
-        self.zip_content()
-        t2 = time.time()
-        print("Zip content done. Time taken: {:.2f}s".format(t2-t1))
+        if self.level == 1:
+            self.directly_zip()
+        else:
+            self.para_df.drop("Content", inplace=True, axis=1)
+            self.zip_normal()
+            print("Zip content begin.")
+            t1 = time.time()
+            self.zip_content()
+            t2 = time.time()
+            print("Zip content done. Time taken: {:.2f}s".format(t2-t1))
 
         print("Zip folder begin.")
         t1 = time.time()
@@ -192,12 +204,15 @@ def split_para2(df):
             filename_para_dict[filename].append(para)
     return filename_para_dict
 
-def save_para(filename_para_dict, path, para_idx_dict):
+def save_para(filename_para_dict, path, para_idx_dict=None):
     for filename in filename_para_dict:
         maxlen = sorted([len(v) for v in filename_para_dict[filename]])[-1]
         for col2 in range(maxlen):
             filepath = os.path.join(path, filename + "_" + str(col2) + ".csv")
-            lines = [para_idx_dict[item[col2]] if col2 < len(item) else para_idx_dict[""] for item in filename_para_dict[filename]]
+            if para_idx_dict:
+                lines = [para_idx_dict[item[col2]] if col2 < len(item) else para_idx_dict[""] for item in filename_para_dict[filename]]
+            else:
+                lines = [item[col2] if col2 < len(item) else "" for item in filename_para_dict[filename]]
             with open(filepath, "w") as fw:
                 fw.writelines("\n".join(lines))
 
