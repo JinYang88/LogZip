@@ -106,3 +106,4 @@ venv.bak/
 *.txt
 *.csv
 zip_out/
+unzip_out/

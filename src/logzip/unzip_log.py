@@ -15,13 +15,14 @@ import shutil
 
 
 class Unziplog():
-    def __init__(self, indir, outdir, log_format, n_workers, kernel="gz"):
+    def __init__(self, indir, outdir, log_format, n_workers, kernel="gz", level=3):
         self.indir = indir
         self.outdir = outdir
         self.n_workers = n_workers
         self.log_format = log_format
         self.ori_df = pd.DataFrame()
         self.kernel = kernel
+        self.level = level
         self.headers = [item.strip('<>') for idx, item in enumerate(re.split(r'(<[^<>]+>)', log_format)) if idx % 2 != 0]
 
 
@@ -45,15 +46,16 @@ class Unziplog():
         t2 = time.time()
         print("Merge normal columns done. Time taken [{:.2f}]".format(t2-t1))
 
-        t1 = time.time()
-        self.merge_para()
-        t2 = time.time()
-        print("Merge parameter columns done. Time taken [{:.2f}]".format(t2-t1))
+        if self.level > 1:
+            t1 = time.time()
+            self.merge_para()
+            t2 = time.time()
+            print("Merge parameter columns done. Time taken [{:.2f}]".format(t2-t1))
 
-        t1 = time.time()
-        self.merge_non_para()
-        t2 = time.time()
-        print("Merge non parameter columns done. Time taken [{:.2f}]".format(t2-t1))
+            t1 = time.time()
+            self.merge_non_para()
+            t2 = time.time()
+            print("Merge non parameter columns done. Time taken [{:.2f}]".format(t2-t1))
 
         t1 = time.time()
         self.dump_normal()
@@ -73,10 +75,14 @@ class Unziplog():
                 extract_tar(tarfiles, self.tmp_dir, kernel=self.kernel)
         
         self.para_files = glob.glob(os.path.join(self.tmp_dir, "E*_*_*.csv"))
-        with open(os.path.join(self.tmp_dir, "parameter_mapping.json")) as fr:
-            self.para_mapping = json.load(fr)
-        with open(os.path.join(self.tmp_dir, "template_mapping.json")) as fr:
-            self.template_mapping = json.load(fr)
+        if self.level == 3:
+            with open(os.path.join(self.tmp_dir, "parameter_mapping.json")) as fr:
+                self.para_mapping = json.load(fr)
+        else:
+            self.para_mapping = None
+        if self.level != 1:
+            with open(os.path.join(self.tmp_dir, "template_mapping.json")) as fr:
+                self.template_mapping = json.load(fr)
 
     def merge_para(self):
         self.para_prefix = set(list(map(lambda x: "_".join(x.split("_")[0:-1]), self.para_files)))
@@ -162,7 +168,7 @@ def extract_tar(tar_path, target_path, kernel):
     except Exception as e:
         print(e)
 
-def parse_eid_para(eid_list, all_para_prefix, template_mapping, para_mapping):
+def parse_eid_para(eid_list, all_para_prefix, template_mapping, para_mapping=None):
     eid_content_dict = {}
     for eidx, para_eid in enumerate(eid_list, 1):
         eid = os.path.split(para_eid)[-1]
@@ -172,8 +178,19 @@ def parse_eid_para(eid_list, all_para_prefix, template_mapping, para_mapping):
         filter_para_prefix = [item for item in all_para_prefix if os.path.split(item)[-1].split("_")[0] == eid]
         for pos, para_prefix in enumerate(filter_para_prefix, 0):
             parafiles = sorted(glob.glob(para_prefix + "_*.csv"), key=lambda x: int(x.split("_")[-1].strip(".csv")))
-            para = pd.concat([pd.read_csv(pf, header=None, dtype=str, skip_blank_lines=False, na_filter=False) for pf in parafiles], axis=1)
-            para = para.apply(lambda x: "".join([para_mapping[item] if not pd.isnull(item) else ""  for item in x.tolist()]), axis=1)
+            # para = pd.concat([pd.read_csv(pf, header=None, dtype=str, skip_blank_lines=False, na_filter=False) for pf in parafiles], axis=1)
+            para_dfs = []
+            for pf in parafiles:
+                try:
+                    para_dfs.append(pd.read_csv(pf, header=None, dtype=str, skip_blank_lines=False, na_filter=False))
+                except:
+                    pass
+            para = pd.concat(para_dfs, axis=1)
+
+            if para_mapping:
+                para = para.apply(lambda x: "".join([para_mapping[item] if not pd.isnull(item) else ""  for item in x.tolist()]), axis=1)
+            else:
+                para = para.apply(lambda x: "".join([item if not pd.isnull(item) else ""  for item in x.tolist()]), axis=1)
             para_df[pos] = para
         full_df = pd.DataFrame()
         template = template_mapping[eid].split("<*>")
