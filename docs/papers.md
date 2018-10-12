@@ -10,6 +10,8 @@
 
 1. Bo Feng, Chentao Wu, Jie Li. [MLC: An Efficient Multi-level Log Compression Method for Cloud Backup Systems](https://ieeexplore.ieee.org/document/7847098/), *IEEE International Symposium on Parallel and Distributed Processing with Applications (ISPA)*, 2016.
 
+1. Qiu Tang, Lei Jiang, Qiong Dai. [Large-Scale Log Compressing System based on Differential Compression](http://www.infocomm-journal.com/txxb/CN/10.11959/j.issn.1000-436x.2015300), *Journal on Communications (Chinese)*, 2015.
+
 1. Peter Mell, Richard E. Harang. [Lightweight Packing of Log Files for Improved Compression in Mobile Tactical Networks](https://ws680.nist.gov/publication/get_pdf.cfm?pub_id=915734), *IEEE Military Communications Conference (MILCOM)*, 2014.
 
 1. Robert Christensen and Feifei Li. [Adaptive Log Compression for Massive Log Data](https://www.cs.utah.edu/~lifeifei/papers/compresslog.pdf), *ACM SIGMOD International Conference on Management of Data (SIGMOD)*, 2013. [[Code](https://pubweb.eng.utah.edu/~robertc/archiver.html#code)]
