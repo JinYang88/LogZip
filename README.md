@@ -3,7 +3,7 @@
 
 # logzip
 
-An efficient compression tool specific for log files.  It compresses log files by utilizing the inherent structures of raw log messages, and thereby achieves a high compression ratio.  Details can be seen in [this](link) paper.
+An efficient compression tool specific for log files.  It compresses log files by utilizing the inherent structures of raw log messages, and thereby achieves a high compression ratio.  
 
 ## Prerequisites 
 
