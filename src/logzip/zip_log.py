@@ -88,12 +88,10 @@ class Ziplog():
         
         self.file_normal_column_dict = {}
         for idx, colname in enumerate(focus_columns):
-            columns_t = list(zip_longest(*splited_columns[idx]))  # transpose
+            columns_t = list(zip_longest(*splited_columns[idx], fillvalue=""))  # transpose
             for sub_idx, col in enumerate(columns_t):
-                col_filled_values = pd.Series(col).fillna("").values # use Series to fillna
                 filename = f"{colname}_{sub_idx}"
-                self.file_normal_column_dict[filename] = col_filled_values
-                del col_filled_values
+                self.file_normal_column_dict[filename] = col
         self.file_normal_column_dict["EventId_0"] = self.para_df["EventId"]
 
     def __pack_params(self, dataframe):
@@ -103,10 +101,9 @@ class Ziplog():
         self.file_para_dict = {}
         for eid in dataframe["EventId"].unique():
             paras = dataframe.loc[dataframe["EventId"]==eid, "ParameterList"]
-            paracolumns = list(zip_longest(*paras))
+            paracolumns = list(zip_longest(*paras, fillvalue=""))
             for para_idx, subparas in enumerate(paracolumns):
-                subparas_columns = list(zip_longest(*subparas))
-                subparas_columns = pd.Series(subparas_columns).fillna("").values
+                subparas_columns = list(zip_longest(*subparas, fillvalue=""))
                 for sub_para_idx, sub_subparas in enumerate(subparas_columns):
                     filename = f"{eid}_{para_idx}_{sub_para_idx}"
                     self.file_para_dict[filename] = sub_subparas
@@ -260,13 +257,13 @@ class Ziplog():
 if __name__ == "__main__":
     import NaiveParser
     
-    n_workers     = 1  # Number of processes.
+    n_workers     = 8  # Number of processes.
     level         = 3  # Compression level.
     top_event     = 2000 # Only templates whose occurrence is ranked above top_event are taken into consideration.
     kernel        = "gz"  # Compression kernels. Options: "gz", "bz2", "lzma".
     log_format    = '<Date> <Time> <Pid> <Level> <Component>: <Content>'  # Log format to extract fields.
     
-    logfile       = "HDFS_2k.log"  # Raw log file.
+    logfile       = "HDFS_1g.log"  # Raw log file.
 #    logfile       = "HDFS.log_500MB"
     indir         = "../../logs/"  # Input directory
     outdir        = "../../zip_out/"  # Output directory, if not exists, it will be created.
