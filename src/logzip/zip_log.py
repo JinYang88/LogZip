@@ -51,9 +51,9 @@ class Ziplog():
         self.kernel = kernel
         self.level = level
         
-        self.splitting_time = 0
         self.packing_time = 0
-
+        self.regex_time = 0
+        self.transpose_time = 0
 
     def compress_all(self):
         self.file_all_column_dict = {}
@@ -68,6 +68,7 @@ class Ziplog():
         ignore_columns = ["LineId", "EventTemplate", "ParameterList", "EventId", "Content"]
         focus_columns = [col for col in self.para_df.columns if col not in ignore_columns]
         
+        t1 = time.time()
         if self.n_workers == 1:
             splited_columns = split_normal(self.para_df[focus_columns])
         else:
@@ -83,9 +84,12 @@ class Ziplog():
             for result in result_chunks:
                 for idx, col in enumerate(result.get()):
                     splited_columns[idx].extend(col)
+        t2 = time.time()
+        self.regex_time += t2 - t1 
 
         self.para_df.drop(focus_columns, axis=1,inplace=True)
         
+        t1 = time.time()
         self.file_normal_column_dict = {}
         for idx, colname in enumerate(focus_columns):
             columns_t = list(zip_longest(*splited_columns[idx], fillvalue=""))  # transpose
@@ -93,6 +97,8 @@ class Ziplog():
                 filename = f"{colname}_{sub_idx}"
                 self.file_normal_column_dict[filename] = col
         self.file_normal_column_dict["EventId_0"] = self.para_df["EventId"]
+        t2 = time.time()
+        self.transpose_time += t2 - t1
 
     def __pack_params(self, dataframe):
         '''
@@ -139,6 +145,7 @@ class Ziplog():
                                     ["EventId","ParameterList"]]
         del self.para_df
         
+        t1 = time.time()
         if self.n_workers == 1:
             splitted_para = split_para(focus_df["ParameterList"])
         else:
@@ -152,10 +159,16 @@ class Ziplog():
             pool.join()
             splitted_para = []
             [splitted_para.extend(_.get()) for _ in result_chunks]
-
+        t2 = time.time()
+        self.regex_time += t2 - t1
+        
+        
         focus_df["ParameterList"] = splitted_para
         
+        t1 = time.time()
         self.__pack_params(focus_df)
+        t2 = time.time()
+        self.transpose_time += t2 - t1
         
         if self.level == 3:
             self.__build_para_index()
@@ -236,20 +249,17 @@ class Ziplog():
         if not os.path.isdir(self.tmp_dir):
             os.makedirs(self.tmp_dir)
         
-        t1 = time.time()
         if self.level == 1:
             self.compress_all()
         elif self.level == 2 or self.level==3:
             self.compress_normal()
             self.compress_content()
             
-        t2 = time.time()
+        t1 = time.time()
         self.__kernel_compress()
-
-        t3 = time.time()
+        t2 = time.time()
         
-        self.splitting_time = t2 - t1
-        self.packing_time = t3 - t2
+        self.packing_time = t2 - t1
         
                 
     
@@ -265,6 +275,7 @@ if __name__ == "__main__":
     
     logfile       = "HDFS_1g.log"  # Raw log file.
 #    logfile       = "HDFS.log_500MB"
+#    logfile       = "HDFS_2k.log"  # Raw log file."
     indir         = "../../logs/"  # Input directory
     outdir        = "../../zip_out/"  # Output directory, if not exists, it will be created.
     outname       = logfile + ".nlogzip"  # Output file name.
@@ -276,33 +287,36 @@ if __name__ == "__main__":
 
     load_log_time = parser.read_file_time
     parse_time = parser.parse_time
-    splitting_time = zipper.splitting_time
     packing_time = zipper.packing_time
+    regex_time = zipper.regex_time
+    transpose_time = zipper.transpose_time
     
     io_time = load_log_time + packing_time
-    processing_time = parse_time + splitting_time
+    processing_time = parse_time + transpose_time
     
     total_time = io_time + processing_time
     
     
-    info_dict = { f"{logfile}_level_{level}_worker_{n_workers}":
-                    {
-                    "load_log_time":load_log_time,
-                    "parse_time": parse_time,
-                    "splitting_time": splitting_time,
-                    "packing_time": packing_time,
-                    "io_time": io_time,
-                    "processing_time": processing_time,
-                    "total_time": total_time
-                    }
-            }
-    
+#    info_dict = { f"{logfile}_level_{level}_worker_{n_workers}":
+#                    {
+#                    "load_log_time":load_log_time,
+#                    "parse_time": parse_time,
+#                    "splitting_time": splitting_time,
+#                    "packing_time": packing_time,
+#                    "io_time": io_time,
+#                    "processing_time": processing_time,
+#                    "total_time": total_time,
+#                    "regex_time": regex_time
+#                    }
+#            }
+#    
     
     print("*" * 40)
     
     print(f"Load log time: {load_log_time:.3f}")
     print(f"Parse time: {parse_time:.3f}")
-    print(f"Splitting time: {splitting_time:.3f}")
+    print(f"Regex time: {regex_time:.3f}")
+    print(f"Transpose time: {transpose_time:.3f}")
     print(f"Packing time: {packing_time:.3f}")
     
     print("*" * 40)
