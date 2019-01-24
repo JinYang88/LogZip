@@ -10,8 +10,8 @@ log_format    = '<Date> <Time> <Pid> <Level> <Component>: <Content>'  # Log form
 
 logfile       = "HDFS_2k.log" 
 ziped_file    = "{}.logzip.tar.gz".format(logfile) # Raw compressed file
-indir         = "./zip_out" # Input directory
-outdir        = "./unzip_out/" # Output directory, if not exists, it will be created.
+indir         = "../../zip_out/" # Input directory
+outdir        = "../../unzip_out/" # Output directory, if not exists, it will be created.
 outname       = "{}.unziped".format(logfile) # Output file name.
 
 if __name__ == "__main__":
