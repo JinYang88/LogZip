@@ -75,13 +75,11 @@ if __name__ == "__main__":
             logfile = f"{dataset}_{postfix}.log"  # Raw log file.
             time_record = run(logfile, log_format_dict[dataset])
             merged_time_record.update(time_record)
+            with open(f"Running-time-experiment_{n_workers}.json", "w") as fw:
+                json.dump(merged_time_record, fw, indent=4)
         except Exception as e:
             print(f"Run {dataset} failed for! ")
 
-    
-    with open(f"Running-time-experiment_{n_workers}.json", "w") as fw:
-        json.dump(merged_time_record, fw, indent=4)
-    
     
     
     
