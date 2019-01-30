@@ -55,6 +55,10 @@ def run(logfile, log_format):
     
 
 if __name__ == "__main__":
+    ## run:
+    ## python running_time.py --worker 4 --postfix 1g
+    ## python running_time.py --worker 8 --postfix 1g
+    
     parser = argparse.ArgumentParser()
     parser.add_argument("--worker", type=int, default="4")
     parser.add_argument("--postfix", type=str, default="2k")
