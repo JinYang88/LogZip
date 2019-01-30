@@ -30,7 +30,7 @@ class LogParser(object):
         self.log_dataframe = pd.DataFrame()
         self.top_event = top_event
         
-        self.read_file_time = 0
+        self.field_extraction_time = 0
         self.parse_time = 0
 
     def preprocess(self, x):
@@ -45,13 +45,17 @@ class LogParser(object):
             shutil.rmtree(self.tmp_dir)
         if not os.path.isdir(self.tmp_dir):
             os.makedirs(self.tmp_dir)
-
-        start_read_time = time.time()
+        
+        ########## Field Extraction TIME begin
+        start_extract_time = time.time()
         loader = logloader.LogLoader(self.log_format, self.tmp_dir, self.n_workers)
         self.log_dataframe = loader.load_to_dataframe(os.path.join(self.indir, logname))
-        end_read_time = time.time()
-        self.read_file_time = end_read_time - start_read_time
-
+        end_extract_time = time.time()
+        self.field_extraction_time = end_extract_time - start_extract_time
+        ########## Field Extraction TIME end
+        
+        
+        ########## PARSING TIME begin
         start_parse_time = time.time()
         templates = []
         paras = []
@@ -73,23 +77,21 @@ class LogParser(object):
         print("Finish filter numbers.")
         
         ## filter top events begin
-
         self.log_dataframe['EventTemplate'] = templates
         self.log_dataframe['ParameterList'] = paras
         top_events = list(filter(lambda x: "<*>" in x, self.log_dataframe['EventTemplate'].value_counts().index))[0: self.top_event]
         false_index = ~self.log_dataframe["EventTemplate"].isin(top_events)
         self.log_dataframe.loc[false_index, "EventTemplate"] = self.log_dataframe.loc[false_index, "Content"]
         self.log_dataframe.loc[false_index, "ParameterList"] = ""
-
         ## filter top events end
         
         self.template_eid_mapping = {evt: "E"+str(idx) for idx, evt in enumerate(self.log_dataframe['EventTemplate'].unique())}
         self.log_dataframe['EventId'] = self.log_dataframe['EventTemplate'].map(lambda x: self.template_eid_mapping[x])
         self.log_dataframe.drop(["LineId"], axis=1, inplace=True)
-        
         end_parse_time = time.time()
         
         self.parse_time = end_parse_time - start_parse_time
+        ########## PARSING TIME end
             
     def dump(self, logname):
         self.log_dataframe.to_csv(os.path.join(self.outdir, logname + '_structured.csv'), index=False)

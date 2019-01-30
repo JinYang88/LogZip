@@ -1,0 +1,32 @@
+{
+    "HDFS_2k.log_workers(4)": {
+        "field_extraction_time": 0.419,
+        "parse_time": 0.172,
+        "mapping_time": 0.012,
+        "packing_time": 1.193
+    },
+    "Spark_2k.log_workers(4)": {
+        "field_extraction_time": 0.448,
+        "parse_time": 0.168,
+        "mapping_time": 0.005,
+        "packing_time": 0.371
+    },
+    "Windows_2k.log_workers(4)": {
+        "field_extraction_time": 0.411,
+        "parse_time": 0.158,
+        "mapping_time": 0.005,
+        "packing_time": 0.621
+    },
+    "Thunderbird_2k.log_workers(4)": {
+        "field_extraction_time": 0.414,
+        "parse_time": 0.199,
+        "mapping_time": 0.015,
+        "packing_time": 1.973
+    },
+    "Andriod_2k.log_workers(4)": {
+        "field_extraction_time": 0.431,
+        "parse_time": 0.168,
+        "mapping_time": 0.007,
+        "packing_time": 1.887
+    }
+}
