@@ -54,9 +54,6 @@ def gzip_dict(adict):
     return b"".join([gzip.compress(bytes(str({k:v}), encoding="utf-8"))\
                              for k, v in adict.items()])
 
-def transpose(alist):
-    return pd.DataFrame(alist).fillna("")
-
 class Ziplog():
     def __init__(self, outdir, n_workers, kernel="gz", level=3):
         self.outdir = outdir
@@ -108,10 +105,8 @@ class Ziplog():
         t1 = time.time()
         self.file_normal_column_dict = {}
         for idx, colname in enumerate(focus_columns):
-#            columns_t = list(zip_longest(*splited_columns[idx], fillvalue=""))  # transpose
-            columns_t = transpose(splited_columns[idx])
-            for sub_idx, col in enumerate(columns_t.columns):
-                col = columns_t[col]
+            columns_t = list(zip_longest(*splited_columns[idx], fillvalue=""))  # transpose
+            for sub_idx, col in enumerate(columns_t):
                 filename = f"{colname}_{sub_idx}"
                 self.file_normal_column_dict[filename] = col
         self.file_normal_column_dict["EventId_0"] = self.para_df["EventId"]
@@ -127,16 +122,15 @@ class Ziplog():
         self.file_para_dict = {}
         for eid in dataframe["EventId"].unique():
             paras = dataframe.loc[dataframe["EventId"]==eid, "ParameterList"]
-#            paracolumns = list(zip_longest(*paras, fillvalue=""))
-            paracolumns = transpose(paras.tolist())
-            for para_idx in paracolumns.columns:
-                subparas = paracolumns[para_idx]
+            paracolumns = list(zip_longest(*paras, fillvalue=""))
+            for para_idx, subparas in enumerate(paracolumns):
+                filename = f"{eid}_{para_idx}"
+                self.file_para_dict[filename] = subparas
+                
 #                subparas_columns = list(zip_longest(*subparas, fillvalue=""))
-                subparas_columns = transpose(subparas.tolist())
-                for sub_para_idx in subparas_columns.columns:
-                    sub_subparas = subparas_columns[sub_para_idx]
-                    filename = f"{eid}_{para_idx}_{sub_para_idx}"
-                    self.file_para_dict[filename] = sub_subparas
+#                for sub_para_idx, sub_subparas in enumerate(subparas_columns):
+#                    filename = f"{eid}_{para_idx}_{sub_para_idx}"
+#                    self.file_para_dict[filename] = sub_subparas
 
 
     def __build_para_index(self):
@@ -167,24 +161,25 @@ class Ziplog():
         
         
         ### EXTRACT FIELD begin
-        t1 = time.time()
-        if self.n_workers == 1:
-            splitted_para = split_para(focus_df["ParameterList"])
-        else:
-            chunk_size = min(1000000, 1 + focus_df.shape[0] // self.n_workers)
-            result_chunks = []
-            pool = mp.Pool(processes=self.n_workers)
-            result_chunks = [pool.apply_async(split_para,\
-                             args=(focus_df["ParameterList"].iloc[i:i+chunk_size],))
-                             for i in range(0, focus_df.shape[0], chunk_size)]
-            pool.close()
-            pool.join()
-            splitted_para = []
-            [splitted_para.extend(_.get()) for _ in result_chunks]
-        t2 = time.time()
-        focus_df["ParameterList"] = splitted_para
-        self.field_extraction_time += t2 - t1
+#        t1 = time.time()
+#        if self.n_workers == 1:
+#            splitted_para = split_para(focus_df["ParameterList"])
+#        else:
+#            chunk_size = min(1000000, 1 + focus_df.shape[0] // self.n_workers)
+#            result_chunks = []
+#            pool = mp.Pool(processes=self.n_workers)
+#            result_chunks = [pool.apply_async(split_para,\
+#                             args=(focus_df["ParameterList"].iloc[i:i+chunk_size],))
+#                             for i in range(0, focus_df.shape[0], chunk_size)]
+#            pool.close()
+#            pool.join()
+#            splitted_para = []
+#            [splitted_para.extend(_.get()) for _ in result_chunks]
+#        t2 = time.time()
+#        focus_df["ParameterList"] = splitted_para
+#        self.field_extraction_time += t2 - t1
         ### EXTRACT FIELD end
+        
         
         ### PACKING begin
         t1 = time.time()
@@ -235,7 +230,6 @@ class Ziplog():
                     tar.close()
                 elif self.kernel  == "lzma":
                     os.system('lzma -k {}'.format(filepath)) 
-            
             
         ## merge begin
         if self.level==3:        
@@ -312,7 +306,7 @@ class Ziplog():
 if __name__ == "__main__":
     import NaiveParser
     
-    n_workers     = 1  # Number of processes.
+    n_workers     = 2  # Number of processes.
     level         = 3  # Compression level.
     top_event     = 2000 # Only templates whose occurrence is ranked above top_event are taken into consideration.
     kernel        = "gz"  # Compression kernels. Options: "gz", "bz2", "lzma".
