@@ -32,9 +32,12 @@ def record_time(parser, zipper, filename):
 
     packing_time = round(zipper.packing_time, 3)
     
+    transpose_time = round(zipper.transpose_time, 3)
+    
     time_dict = {"field_extraction_time":field_extraction_time,
                  "parse_time": parse_time,
                  "mapping_time": mapping_time,
+                 "transpose_time": transpose_time,
                  "packing_time": packing_time}
     return {filename + f"_workers({n_workers})": time_dict}
     
@@ -55,8 +58,8 @@ if __name__ == "__main__":
     ## python running_time.py --worker 8 --postfix 1g
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--worker", type=int, default="4")
-    parser.add_argument("--postfix", type=str, default="2k")
+    parser.add_argument("--worker", type=int, default="2")
+    parser.add_argument("--postfix", type=str, default="100MB")
     args = vars(parser.parse_args())
 
     postfix = args["postfix"]
@@ -73,7 +76,7 @@ if __name__ == "__main__":
             with open(f"Running-time-experiment_{n_workers}.json", "w") as fw:
                 json.dump(merged_time_record, fw, indent=4)
         except Exception as e:
-            print(f"Run {dataset} failed for! ")
+            print(f"Run {dataset} failed! ")
 
     
     

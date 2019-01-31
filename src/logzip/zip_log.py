@@ -17,6 +17,7 @@ from io import StringIO
 import gzip
 from collections import defaultdict
 from itertools import zip_longest
+from itertools import islice
 import pickle
 
 #split_regex = re.compile("([^a-zA-Z0-9]+)")
@@ -44,6 +45,14 @@ def baseN(num, b):
     return ((num == 0) and "0") or \
             (baseN(num // b, b).lstrip("0") + "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+="[num % b])
 
+def chunk_dict(data, SIZE=10000):
+    it = iter(data)
+    for i in range(0, len(data), SIZE):
+        yield {k:data[k] for k in islice(it, SIZE)}
+        
+def gzip_dict(adict):
+    return b"".join([gzip.compress(bytes(str({k:v}), encoding="utf-8"))\
+                             for k, v in adict.items()])
 
 class Ziplog():
     def __init__(self, outdir, n_workers, kernel="gz", level=3):
@@ -52,6 +61,7 @@ class Ziplog():
         self.kernel = kernel
         self.level = level
         
+        self.transpose_time = 0
         self.packing_time = 0
         self.field_extraction_time = 0
         self.mapping_time = 0
@@ -102,7 +112,7 @@ class Ziplog():
         self.file_normal_column_dict["EventId_0"] = self.para_df["EventId"]
         t2 = time.time()
         ## PACKING end
-        self.packing_time += t2 - t1
+        self.transpose_time += t2 - t1
 
 
     def __pack_params(self, dataframe):
@@ -173,7 +183,7 @@ class Ziplog():
         t1 = time.time()
         self.__pack_params(focus_df)
         t2 = time.time()
-        self.packing_time += t2 - t1
+        self.transpose_time += t2 - t1
         ### PACKING end
         
         
@@ -200,7 +210,6 @@ class Ziplog():
         [self.file_para_dict, self.file_normal_column_dict]
         '''
         
-        
         def output_dict(adict):
             for filename, content_list in adict.items():
                 with open(os.path.join(self.tmp_dir, filename+".csv"), "w") as fw:
@@ -222,79 +231,62 @@ class Ziplog():
             
             
         ## merge begin
-        if self.level==3:
-            with open(os.path.join(self.tmp_dir, "parameter_mapping.json"), "w") as fw:
-                    json.dump(self.index_para_dict, fw)
+        if self.level==3:        
+            self.all_filename_obj_dict[os.path.join(self.tmp_dir, "template_mapping.json")] \
+                                    = self.template_mapping
+        
         if self.level > 1:
-            with open(os.path.join(self.tmp_dir, "template_mapping.json"), "w") as fw:
-                json.dump(self.template_mapping, fw)
+            self.all_filename_obj_dict[os.path.join(self.tmp_dir, "parameter_mapping.json")] \
+                                    = self.index_para_dict
         
         if self.level == 1:
-            self.all_filename_obj_dict.update(self.file_all_column_dict)
+            for k,v in self.file_all_column_dict.items():
+                self.all_filename_obj_dict[k] = v
+            del self.file_all_column_dict
         elif self.level == 2 or self.level == 3:
-            self.all_filename_obj_dict.update(self.file_para_dict)
-            self.all_filename_obj_dict.update(self.file_normal_column_dict)
+            for k,v in self.file_para_dict.items():
+                self.all_filename_obj_dict[k] = v
+            for k,v in self.file_normal_column_dict.items():
+                self.all_filename_obj_dict[k] = v
+            del self.file_normal_column_dict
+            del self.file_para_dict
         else:
             raise RuntimeError(f"The level {self.level} is illegal!")
         ## merge end
         
         print("Packing {} files.".format(len(self.all_filename_obj_dict)))
-        
-        ## compress begin
-        output_dict(self.all_filename_obj_dict)
-        if self.kernel == "gz":
-            allfiles = glob.glob(os.path.join(self.tmp_dir, "*.csv"))\
-                        + glob.glob(os.path.join(self.tmp_dir, "*.json"))
 
-            tarall = tarfile.open(os.path.join(self.outdir, \
-                                    "{}.tar.{}".format(self.outname, self.kernel)),\
-                                    "w:{}".format(self.kernel))
-            for idx, filepath in enumerate(allfiles):
-                tarall.add(filepath, arcname=os.path.basename(filepath))
-            tarall.close()
-        ## compress end
-        
-        
-#        ## compress begin
-#        output_dict(self.all_filename_obj_dict)
-#        if self.kernel == "gz":
-#            allfiles = glob.glob(os.path.join(self.tmp_dir, "*.csv"))\
-#                        + glob.glob(os.path.join(self.tmp_dir, "*.json"))
-#
-#            files_to_tar(allfiles)
-#            tarall = tarfile.open(os.path.join(self.outdir, \
-#                                    "{}.tar.{}".format(self.outname, self.kernel)),\
-#                                    "w:{}".format(self.kernel))
-#            for idx, filepath in enumerate(glob.glob(os.path.join(self.tmp_dir,\
-#                                          "*.tar.{}".format(self.kernel))), 1):
-#                tarall.add(filepath, arcname=os.path.basename(filepath))
-#            tarall.close()
-#        ## compress end
-        
-        
-#        ## pickle begin
-#        binary_file_name = os.path.join(self.outdir, "{}.pkl".format(self.outname))
-#        with open(binary_file_name, "wb") as fw:
-#            pickle.dump(self.all_filename_obj_dict, fw)
-#        ## pickle end
-#        
-#        ## tar begin
-#        tarall = tarfile.open(os.path.join(self.outdir, \
-#                                    "{}.tar.{}".format(self.outname, self.kernel)),\
-#                                    "w:{}".format(self.kernel))
-#        tarall.add(binary_file_name, arcname=os.path.basename(binary_file_name))
-#        tarall.close()
-#        ## tar end
-        
-        
+        # compress begin
+        gzip_file_name = os.path.join(self.outdir, \
+                                  "{}.tar.{}".format(self.outname, self.kernel))
+
+        if self.n_workers == 1:
+            gzipped_bytes = gzip_dict(self.all_filename_obj_dict)
+        else:
+            chunk_size = max(100, len(self.all_filename_obj_dict) // self.n_workers)
+            pool = mp.Pool(processes=self.n_workers)
+            gzipped_bytes_list = [pool.apply_async(gzip_dict,\
+                            args=(adict,))
+                            for adict in chunk_dict(self.all_filename_obj_dict, chunk_size)]
+            pool.close()
+            pool.join()
+            gzipped_bytes = b"".join([result.get() for result in gzipped_bytes_list])
+
+        t1 = time.time()
+        with open(gzip_file_name, "wb") as fw:
+            fw.write(gzipped_bytes)
+        t2 = time.time()
+        print(f"writing for {t2-t1:.3f}s")
+        # compress end
 
         
     def zip_file(self, outname, filename, para_df=None, delete_tmp=True):
         self.outname = outname
         self.tmp_dir = os.path.join(self.outdir, filename + "_tmp")
         self.para_df = para_df.fillna("")
-        if not os.path.isdir(self.tmp_dir):
-            os.makedirs(self.tmp_dir)
+        if os.path.isdir(self.tmp_dir):
+            shutil.rmtree(self.tmp_dir)
+        os.makedirs(self.tmp_dir)
         
         if self.level == 1:
             self.compress_all()
@@ -313,18 +305,18 @@ class Ziplog():
 if __name__ == "__main__":
     import NaiveParser
     
-    n_workers     = 1  # Number of processes.
+    n_workers     = 2  # Number of processes.
     level         = 3  # Compression level.
     top_event     = 2000 # Only templates whose occurrence is ranked above top_event are taken into consideration.
     kernel        = "gz"  # Compression kernels. Options: "gz", "bz2", "lzma".
     log_format    = '<Date> <Time> <Pid> <Level> <Component>: <Content>'  # Log format to extract fields.
     
 #    logfile       = "HDFS_1g.log"  # Raw log file.
-#    logfile       = "HDFS.log_100MB"
+#    logfile       = "HDFS_100MB.log"
     logfile       = "HDFS_2k.log"  # Raw log file."
     indir         = "../../logs/"  # Input directory
     outdir        = "../../zip_out/"  # Output directory, if not exists, it will be created.
-    outname       = logfile + ".nlogzip"  # Output file name.
+    outname       = logfile + ".nnlogzip"  # Output file name.
     
     parser = NaiveParser.LogParser(indir, outdir, log_format, n_workers=n_workers, top_event=top_event)
     structured_log = parser.parse(logfile)
