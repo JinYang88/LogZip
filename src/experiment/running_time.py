@@ -58,7 +58,7 @@ if __name__ == "__main__":
     ## python running_time.py --worker 8 --postfix 1g
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--worker", type=int, default="2")
+    parser.add_argument("--worker", type=int, default="1")
     parser.add_argument("--postfix", type=str, default="100MB")
     args = vars(parser.parse_args())
 
