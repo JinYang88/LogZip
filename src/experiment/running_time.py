@@ -13,11 +13,6 @@ indir         = "../../logs/"  # Input directory
 outdir        = "../../zip_out/"  # Output directory, if not exists, it will be created.
 
 
-log_format    = '<Date> <Time> <Pid> <Level> <Component>: <Content>'  # Log format to extract fields.
-#logfile       = "HDFS_1g.log"
-logfile       = "HDFS_2k.log"  # Raw log file.
-
-
 log_format_dict = {
     "HDFS": '<Date> <Time> <Pid> <Level> <Component>: <Content>',
     "Spark": '<Date> <Time> <Level> <Component>: <Content>',

@@ -17,6 +17,7 @@ from io import StringIO
 import gzip
 from collections import defaultdict
 from itertools import zip_longest
+import pickle
 
 #split_regex = re.compile("([^a-zA-Z0-9]+)")
 
@@ -54,6 +55,7 @@ class Ziplog():
         self.packing_time = 0
         self.field_extraction_time = 0
         self.mapping_time = 0
+        self.all_filename_obj_dict = {}
 
     def compress_all(self):
         self.file_all_column_dict = {}
@@ -198,6 +200,7 @@ class Ziplog():
         [self.file_para_dict, self.file_normal_column_dict]
         '''
         
+        
         def output_dict(adict):
             for filename, content_list in adict.items():
                 with open(os.path.join(self.tmp_dir, filename+".csv"), "w") as fw:
@@ -218,7 +221,7 @@ class Ziplog():
                     os.system('lzma -k {}'.format(filepath)) 
             
             
-        ## output begin
+        ## merge begin
         if self.level==3:
             with open(os.path.join(self.tmp_dir, "parameter_mapping.json"), "w") as fw:
                     json.dump(self.index_para_dict, fw)
@@ -227,30 +230,64 @@ class Ziplog():
                 json.dump(self.template_mapping, fw)
         
         if self.level == 1:
-            output_dict(self.file_all_column_dict)
+            self.all_filename_obj_dict.update(self.file_all_column_dict)
         elif self.level == 2 or self.level == 3:
-            output_dict(self.file_para_dict)
-            output_dict(self.file_normal_column_dict)
+            self.all_filename_obj_dict.update(self.file_para_dict)
+            self.all_filename_obj_dict.update(self.file_normal_column_dict)
         else:
             raise RuntimeError(f"The level {self.level} is illegal!")
-        ## output end
+        ## merge end
         
+        print("Packing {} files.".format(len(self.all_filename_obj_dict)))
         
         ## compress begin
+        output_dict(self.all_filename_obj_dict)
         if self.kernel == "gz":
             allfiles = glob.glob(os.path.join(self.tmp_dir, "*.csv"))\
                         + glob.glob(os.path.join(self.tmp_dir, "*.json"))
-            files_to_tar(allfiles)
-            
+
             tarall = tarfile.open(os.path.join(self.outdir, \
                                     "{}.tar.{}".format(self.outname, self.kernel)),\
                                     "w:{}".format(self.kernel))
-            for idx, filepath in enumerate(glob.glob(os.path.join(self.tmp_dir,\
-                                          "*.tar.{}".format(self.kernel))), 1):
+            for idx, filepath in enumerate(allfiles):
                 tarall.add(filepath, arcname=os.path.basename(filepath))
             tarall.close()
         ## compress end
         
+        
+#        ## compress begin
+#        output_dict(self.all_filename_obj_dict)
+#        if self.kernel == "gz":
+#            allfiles = glob.glob(os.path.join(self.tmp_dir, "*.csv"))\
+#                        + glob.glob(os.path.join(self.tmp_dir, "*.json"))
+#
+#            files_to_tar(allfiles)
+#            tarall = tarfile.open(os.path.join(self.outdir, \
+#                                    "{}.tar.{}".format(self.outname, self.kernel)),\
+#                                    "w:{}".format(self.kernel))
+#            for idx, filepath in enumerate(glob.glob(os.path.join(self.tmp_dir,\
+#                                          "*.tar.{}".format(self.kernel))), 1):
+#                tarall.add(filepath, arcname=os.path.basename(filepath))
+#            tarall.close()
+#        ## compress end
+        
+        
+#        ## pickle begin
+#        binary_file_name = os.path.join(self.outdir, "{}.pkl".format(self.outname))
+#        with open(binary_file_name, "wb") as fw:
+#            pickle.dump(self.all_filename_obj_dict, fw)
+#        ## pickle end
+#        
+#        ## tar begin
+#        tarall = tarfile.open(os.path.join(self.outdir, \
+#                                    "{}.tar.{}".format(self.outname, self.kernel)),\
+#                                    "w:{}".format(self.kernel))
+#        tarall.add(binary_file_name, arcname=os.path.basename(binary_file_name))
+#        tarall.close()
+#        ## tar end
+        
+        
+
         
     def zip_file(self, outname, filename, para_df=None, delete_tmp=True):
         self.outname = outname
@@ -276,14 +313,14 @@ class Ziplog():
 if __name__ == "__main__":
     import NaiveParser
     
-    n_workers     = 2  # Number of processes.
+    n_workers     = 1  # Number of processes.
     level         = 3  # Compression level.
     top_event     = 2000 # Only templates whose occurrence is ranked above top_event are taken into consideration.
     kernel        = "gz"  # Compression kernels. Options: "gz", "bz2", "lzma".
     log_format    = '<Date> <Time> <Pid> <Level> <Component>: <Content>'  # Log format to extract fields.
     
 #    logfile       = "HDFS_1g.log"  # Raw log file.
-#    logfile       = "HDFS.log_500MB"
+#    logfile       = "HDFS.log_100MB"
     logfile       = "HDFS_2k.log"  # Raw log file."
     indir         = "../../logs/"  # Input directory
     outdir        = "../../zip_out/"  # Output directory, if not exists, it will be created.
