@@ -1,7 +1,7 @@
 ## Log Compression
 A list of papers on log compression research.
 
-1. Rahul Surti, Shashank Saxena. [LittleLog: A Log Compression and Querying Service](https://shashanksaxena.me/assets/docs/little_log.pdf), *preprint*, 2018. [[Code](https://github.com/Salil999/LittleLog)]
+1. Rahul Surti, Shashank Saxena. [LittleLog: A Log Compression and Querying Service](https://shashanksaxena.me/assets/docs/little_log.pdf), *Preprint*, 2018. [[Code](https://github.com/Salil999/LittleLog)]
 
 1. Ting Xie, Oliver Kennedy, Varun Chandola. [Query Log Compression for Workload Analytics](https://arxiv.org/abs/1809.00405), *Arxiv, abs/1809.00405*, 2018. 
 
