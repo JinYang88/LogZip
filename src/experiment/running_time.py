@@ -25,13 +25,9 @@ log_format_dict = {
 def record_time(parser, zipper, filename):
     field_extraction_time = round(parser.field_extraction_time\
                             + zipper.field_extraction_time, 3)
-                            
     parse_time = round(parser.parse_time, 3)
-    
     mapping_time = round(zipper.mapping_time, 3) 
-
     packing_time = round(zipper.packing_time, 3)
-    
     transpose_time = round(zipper.transpose_time, 3)
     
     time_dict = {"field_extraction_time":field_extraction_time,
@@ -48,7 +44,6 @@ def run(logfile, log_format):
     structured_log = parser.parse(logfile, dump=False)
     zipper = zip_log.Ziplog(outdir=outdir, n_workers=n_workers, kernel=kernel, level=level)
     zipper.zip_file(outname=outname, filename=logfile, para_df=structured_log)
-    
     return record_time(parser, zipper, logfile)
     
 
