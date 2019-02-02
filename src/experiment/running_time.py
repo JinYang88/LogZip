@@ -65,7 +65,8 @@ if __name__ == "__main__":
     postfix = args["postfix"]
     n_workers = args["worker"]  # Number of processes.
 
-    datasets = ["HDFS", "Spark", "Windows", "Thunderbird", "Andriod"]
+#    datasets = ["HDFS", "Spark", "Windows", "Thunderbird", "Andriod"]
+    datasets = ["Thunderbird"]
     merged_time_record = {}
     for dataset in datasets:
         print(f"Running {dataset}")
@@ -73,7 +74,7 @@ if __name__ == "__main__":
             logfile = f"{dataset}_{postfix}.log"  # Raw log file.
             time_record = run(logfile, log_format_dict[dataset])
             merged_time_record.update(time_record)
-            with open(f"Running-time-experiment_{n_workers}_buffer_nosplit.json", "w") as fw:
+            with open(f"Running-time-experiment_{n_workers}_thunder.json", "w") as fw:
                 json.dump(merged_time_record, fw, indent=4)
         except Exception as e:
             print(f"Run {dataset} failed! ")
