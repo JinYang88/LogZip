@@ -154,8 +154,6 @@ class Ziplog():
             [fw.close() for fw in file_writers]
             t3 = time.time()
             self.writing_time += t3 - t2
-        print(f"Buffer taken {self.buffer_time}.")
-        print(f"Write lines taken {self.writing_time}.")
             
             
     def __build_para_index(self, dataframe):
