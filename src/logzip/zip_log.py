@@ -109,13 +109,15 @@ class Ziplog():
             max_col_num = len( sorted(splited_columns[idx], key=lambda x: len(x))[-1] )
             file_writers = [open( os.path.join(self.tmp_dir, f"{colname}_{sub_idx}.csv"), "w")
                             for sub_idx in range(max_col_num)]
+            buffers = [[] for _ in file_writers]
             for row in splited_columns[idx]:
                 lrow = len(row)
                 for col_idx in range(max_col_num):
                     if col_idx < lrow:
-                        file_writers[col_idx].write(row[col_idx] + "\n")
+                        buffers[col_idx].append(row[col_idx] + "\n")
                     else:
-                        file_writers[col_idx].write("\n")
+                        buffers[col_idx].append("\n")
+            [fw.writelines(buffers[idx]) for idx, fw in enumerate(file_writers)]
             [fw.close() for fw in file_writers]
         self.file_normal_column_dict["EventId_0"] = self.para_df["EventId"]
         t2 = time.time()
@@ -127,9 +129,10 @@ class Ziplog():
         '''
         Input: dataframe with tow columns [EventId, ParameterList]
         '''
-        self.file_para_dict = {}
+        self.buffer_time = 0
+        self.writing_time = 0
         for eid in dataframe["EventId"].unique():
-#            eid = "E13"
+            t1 = time.time()         
             paras = dataframe.loc[dataframe["EventId"]==eid, "ParameterList"].tolist()
             star_position = len(paras[0])
             star_split_mapping = {}
@@ -137,7 +140,6 @@ class Ziplog():
                 max_split_position = len(sorted(paras, key=\
                                                 lambda x: len(x[star_idx]))[-1][star_idx])
                 star_split_mapping[star_idx] = max_split_position
-
             file_writers = []
             for star_idx in range(star_position):
                 split_position = star_split_mapping[star_idx]
@@ -145,6 +147,8 @@ class Ziplog():
                     file_writers.append(
                             open(os.path.join(self.tmp_dir,\
                                               f"{eid}_{star_idx}_{split_idx}.csv"), "w"))
+                    
+            buffers = [[] for _ in file_writers]
             for row in paras:
                 writer_idx = 0
                 for star_idx in range(star_position):
@@ -152,26 +156,37 @@ class Ziplog():
                     max_row_split_len = len(row[star_idx])
                     for split_idx in range(split_position):
                         if split_idx < max_row_split_len:
-                            file_writers[writer_idx].write(row[star_idx][split_idx] + "\n")
+                            if self.level == 3:
+                                buffers[writer_idx].append(\
+                                       self.para_index_dict[row[star_idx][split_idx]] + "\n")
+                            else:
+                                buffers[writer_idx].append(row[star_idx][split_idx] + "\n")
                         else:
-                            file_writers[writer_idx].write("\n")
+                            buffers[writer_idx].append("\n")
                         writer_idx += 1
-                    
+            t2 = time.time()
+            self.buffer_time += t2 - t1
+            
+            [fw.writelines(buffers[idx]) for idx, fw in enumerate(file_writers)]
             [fw.close() for fw in file_writers]
             
+            t3 = time.time()
             
-    def __build_para_index(self):
+            self.writing_time += t3 - t2
+        print(f"Buffer taken {self.buffer_time}.")
+        print(f"Write lines taken {self.writing_time}.")
+            
+            
+    def __build_para_index(self, dataframe):
         index = 0
-        para_index_dict = {}
-        for filename, paras in self.file_para_dict.items():
-            para_set = set(paras)
+        self.para_index_dict = {}
+        for paras in dataframe["ParameterList"]:
+            para_set = set([item for sublist in paras for item in sublist])
             for upara in para_set:
                 index += 1
                 index_64 = baseN(index, 64)
-                para_index_dict[upara] = index_64
-            paras_mapped = [para_index_dict[para] for para in paras]
-            self.file_para_dict[filename] = paras_mapped
-        self.index_para_dict = {v:k for k,v in para_index_dict.items()}
+                self.para_index_dict[upara] = index_64
+        self.index_para_dict = {v:k for k,v in self.para_index_dict.items()}
         
                 
         
@@ -185,7 +200,6 @@ class Ziplog():
         focus_df = self.para_df.loc[focus_index,\
                                     ["EventId","ParameterList"]]
         del self.para_df
-        
         
         ### EXTRACT FIELD begin
         t1 = time.time()
@@ -208,21 +222,21 @@ class Ziplog():
         ### EXTRACT FIELD end
         
         
+        ### MAPPING begin
+        t1 = time.time()
+        if self.level == 3:
+            self.__build_para_index(focus_df)
+        t2 = time.time()
+        self.mapping_time += t2 - t1
+        ### MAPPING end
+        
+        
         ### PACKING begin
         t1 = time.time()
         self.__pack_params(focus_df)
         t2 = time.time()
         self.transpose_time += t2 - t1
         ### PACKING end
-        
-        
-        ### MAPPING begin
-        t1 = time.time()
-        if self.level == 3:
-            self.__build_para_index()
-        t2 = time.time()
-        self.mapping_time += t2 - t1
-        ### MAPPING end
         
         gc.collect()
 

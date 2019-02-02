@@ -30,11 +30,16 @@ def record_time(parser, zipper, filename):
     packing_time = round(zipper.packing_time, 3)
     transpose_time = round(zipper.transpose_time, 3)
     
+    buffer_time = round(zipper.buffer_time, 3)
+    writing_time = round(zipper.writing_time, 3)
+    
     time_dict = {"field_extraction_time":field_extraction_time,
                  "parse_time": parse_time,
                  "mapping_time": mapping_time,
                  "transpose_time": transpose_time,
-                 "packing_time": packing_time}
+                 "packing_time": packing_time,
+                 "buffer_time": buffer_time,
+                 "writing_time": writing_time}
     return {filename + f"_workers({n_workers})": time_dict}
     
 
@@ -54,7 +59,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
     parser.add_argument("--worker", type=int, default="1")
-    parser.add_argument("--postfix", type=str, default="100MB")
+    parser.add_argument("--postfix", type=str, default="2k")
     args = vars(parser.parse_args())
 
     postfix = args["postfix"]
@@ -68,7 +73,7 @@ if __name__ == "__main__":
             logfile = f"{dataset}_{postfix}.log"  # Raw log file.
             time_record = run(logfile, log_format_dict[dataset])
             merged_time_record.update(time_record)
-            with open(f"Running-time-experiment_{n_workers}_df.json", "w") as fw:
+            with open(f"Running-time-experiment_{n_workers}_buffer.json", "w") as fw:
                 json.dump(merged_time_record, fw, indent=4)
         except Exception as e:
             print(f"Run {dataset} failed! ")
