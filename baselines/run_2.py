@@ -43,5 +43,11 @@ outfiles = glob.glob(os.path.join(output_dir, "*.bz2"))
 compressed_size = sum([get_FileSize(file) for file in outfiles])
 original_size = get_FileSize(args['file'])
 compress_ratio = round(original_size / compressed_size, 2)
+
+firstline = True
+if os.path.isfile("report_2.csv"):
+    firstline = False
 with open(f"report_2.csv", "a+") as fw:
+    if firstline:
+        fw.write("timemark,logname,original_size,compressed_size,compress_ratio,time_taken\n")
     fw.write(f"{timemark},{logname},{original_size},{compressed_size},{compress_ratio},{time_taken}\n")
