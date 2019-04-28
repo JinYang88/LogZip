@@ -31,7 +31,7 @@ os.chdir(output_dir)
 shutil.copyfile(os.path.join("../../2_SIGMOD13/", "archiver.o"),
                 os.path.join("./archiver.o"))
 logpath = os.path.join("../../", args['file'])
-cmd = f"cat {logpath} | ./archiver.o -c --jhistory 10 --buckets 16 --est"
+cmd = f"cat {logpath} | ../../2_SIGMOD13/archiver.o -c --jhistory 10 --buckets 16 --est"
 start = time.time()
 subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True)
 end = time.time()
