@@ -1,0 +1,43 @@
+README for cowic library.
+
+Overview:
+    Cowic is a C++ library to compress formatted log like Apache access log.
+
+Download:
+    You can checkout the repository from:
+        https://github.com/linhao1990/cowic.git
+
+Compile:
+    Switch to the project baes directory $BASE, then execute:
+        $ make
+    It will compile the library and produce file at: $BASE/lib/cowic.a
+
+Example:
+    We provide an example to illustrate how to use out library, execute:
+        $ make example
+    It will compile and generate an executable file at: 
+        $BASE/bin/compressor_cmd_tool
+    You can use it to train, compress and decompress a file, we also
+    provide a script at 
+        $BASE/script/generate_report.rb
+    You need to install ruby enviroment to run it. It illustrate how to
+    run the executable file and generate a report of compression ratio
+    for FP dataset. The report file is located at:
+        $BASE/report/fp.csv
+
+Use in your application:
+    First you need to copy the "include" directory to your project home, 
+    and you also need to copy "lib/cowic.a" to your project home.
+
+    In the source file using cowic library, you need to include the head:
+        #include "cowic.h"
+    When compile the file, you need to include the header file by:
+        -I include/cowic/
+    and you need to add cowic.a to the object files.
+
+    There is also an Makefile at folder $BASE/example, you can reference it to 
+    see how to compile it.
+
+Project Home:
+    This project is available at github:
+        https://github.com/linhao1990/cowic.git
