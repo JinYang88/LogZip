@@ -87,8 +87,8 @@ def runfile(filepath):
             if "TimeFormat" in line:
                 for key in timeformat:
                     if key in logname:
-                        line = line.replace("TimeFormat", timeformat[logname])
-                        print("Use timeformat {} for {}".format(timeformat[logname], logname))
+                        line = line.replace("TimeFormat", timeformat[key])
+                        print("Use timeformat {} for {}".format(timeformat[key], logname))
             content.append(line)
     with open(os.path.join(dst), "w") as fw:
         fw.writelines(content)
