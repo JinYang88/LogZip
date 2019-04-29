@@ -38,7 +38,7 @@ def runfile(filepath):
     # run compression in the dir
 #    os.chdir(output_dir)
     dst_log = os.path.join(output_dir, logname)
-    cmd = "ln {} {}".format(os.path.join("../../", filepath), dst_log)
+    cmd = "ln {} {}".format(filepath, dst_log)
     try:
         subprocess.call(cmd, stderr=subprocess.STDOUT, shell=True)
     except Exception as e:
