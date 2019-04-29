@@ -14,21 +14,21 @@ parser.add_argument('--file', type=str, default="../logs/HDFS_2k.log")
 args = vars(parser.parse_args())
 
 #4;Timestamp;"[%d/%b/%Y:%H:%M:%S %z] "|1;IP
-timeformat = {
-        "Spark": '1;Timestamp;%y/%m/%d %H:%M:%S ', # 15/09/01 18:14:51 
-        "Windows": '1;Timestamp;"%Y-%m-%d %H:%M:%S", ',  # 2016-09-28 04:30:31
-        "Thunder": '3;Timestamp;%Y.%m.%d ', # 2005.11.09 
-        "Andriod": '1;Timestamp;%m-%d', # 04-23
-        "HDFS": '' # 04-23
-        }
-
 #timeformat = {
-#        "Spark": '',
-#        "Windows": '',
-#        "Thunder": '',
-#        "Andriod": '',
+#        "Spark": '1;Timestamp;%y/%m/%d %H:%M:%S ', # 15/09/01 18:14:51 
+#        "Windows": '1;Timestamp;"%Y-%m-%d %H:%M:%S", ',  # 2016-09-28 04:30:31
+#        "Thunder": '3;Timestamp;%Y.%m.%d ', # 2005.11.09 
+#        "Andriod": '1;Timestamp;%m-%d', # 04-23
 #        "HDFS": '' # 04-23
 #        }
+
+timeformat = {
+        "Spark": '',
+        "Windows": '',
+        "Thunder": '',
+        "Andriod": '',
+        "HDFS": '' # 04-23
+        }
 
 def get_FileSize(filePath):
     fsize = os.path.getsize(filePath)
