@@ -71,12 +71,6 @@ def runfile(filepath):
         for line in fr.readlines():
             if "logfile_path" in line:
                 line = line.replace("logfile_path", f"./{logname}")
-            if "TimeFormat" in line:
-                for key in timeformat:
-                    print("Trying format", key)
-                    if key in logname:
-                        line = line.replace("TimeFormat", timeformat[logname])
-                        print("Use timeformat {} for {}".format(timeformat[logname], logname))
             content.append(line)
     with open(os.path.join(dst, "generate_report.rb"), "w") as fw:
         fw.writelines(content)
@@ -87,6 +81,17 @@ def runfile(filepath):
         shutil.copyfile(src, dst)    
     except Exception as e:
         print(e)
+    content = []
+    with open(os.path.join(dst), "r") as fr:
+        for line in fr.readlines():
+            if "TimeFormat" in line:
+                for key in timeformat:
+                    if key in logname:
+                        line = line.replace("TimeFormat", timeformat[logname])
+                        print("Use timeformat {} for {}".format(timeformat[logname], logname))
+            content.append(line)
+    with open(os.path.join(dst), "w") as fw:
+        fw.writelines(content)
     
     os.chdir(output_dir)
     start = time.time()
