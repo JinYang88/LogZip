@@ -72,7 +72,9 @@ def runfile(filepath):
             if "logfile_path" in line:
                 line = line.replace("logfile_path", f"./{logname}")
             if "TimeFormat" in line:
-                line = line.replace("TimeFormat", timeformat[logname])
+                for key in timeformat:
+                    if key in logname:
+                        line.replace("TimeFormat", timeformat[logname])
             content.append(line)
     with open(os.path.join(dst, "generate_report.rb"), "w") as fw:
         fw.writelines(content)
