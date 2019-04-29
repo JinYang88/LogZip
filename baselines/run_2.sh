@@ -6,6 +6,13 @@
 # nohup python run_2.py --file ../logs/Andriod.log > Andriod.l 2>&1 &
 # nohup python run_2.py --file ../logs/Spark.log > Spark.l 2>&1 &
 
+
+nohup python run_2.py --file ../logs/Andriod_1g.log > Andriod_1g.l 2>&1 &
+nohup python run_2.py --file ../logs/HDFS_1g.log > HDFS_1g.l 2>&1 &
+nohup python run_2.py --file ../logs/Spark_1g.log > Spark_1g.l 2>&1 &
+nohup python run_2.py --file ../logs/Thunderbird_1g.log > Thunderbird_1g.l 2>&1 &
+nohup python run_2.py --file ../logs/Windows_1g.log > Windows_1g.l 2>&1 &
+
 nohup python run_2.py --file ../logs/Thunder_aa > Thunder_aa.l 2>&1 &
 nohup python run_2.py --file ../logs/Thunder_ab > Thunder_ab.l 2>&1 &
 nohup python run_2.py --file ../logs/Thunder_ac > Thunder_ac.l 2>&1 &
