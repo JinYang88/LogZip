@@ -38,13 +38,20 @@ def runfile(filepath):
     # run compression in the dir
 #    os.chdir(output_dir)
     
+    
     src = os.path.join("./1_CCGrid15/bin")
     dst = os.path.join(output_dir, "bin")
-    shutil.copytree(src, dst)
+    try:
+        shutil.copytree(src, dst)
+    except Exception as e:
+        print(e)
 # 
     src = os.path.join("./1_CCGrid15/script")
     dst = os.path.join(output_dir, "script")
-    shutil.copytree(src, dst)
+    try:
+        shutil.copytree(src, dst)
+    except Exception as e:
+        print(e)
     content = []
     with open(os.path.join(dst, "generate_report.rb"), "r") as fr:
         for line in fr.readlines():
@@ -56,7 +63,10 @@ def runfile(filepath):
     
     src = os.path.join("./1_CCGrid15/config.ini")
     dst = os.path.join(output_dir, "config.ini")
-    shutil.copyfile(src, dst)    
+    try:
+        shutil.copyfile(src, dst)    
+    except Exception as e:
+        print(e)
     
     os.chdir(output_dir)
     start = time.time()
