@@ -46,7 +46,11 @@ def copytree(src, dst, symlinks=False, ignore=None):
             
 def runfile(filepath):
     timemark = time.strftime('%m%d-%H%M%S', time.localtime(time.time()))
-    logname = os.path.basename(filepath).strip(".log")
+    
+    if os.path.basename(filepath).endswith(".log"):
+        logname = os.path.basename(filepath).strip(".log")
+    else:
+        logname = os.path.basename(filepath)
     # init a new dir
     output_dir = os.path.join("./1_output", logname)
     if not os.path.isdir(output_dir):
