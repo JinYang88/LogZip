@@ -5,7 +5,7 @@
 #python run_1.py --file ../logs/Andriod_2k.log
 #python run_1.py --file ../logs/Spark_2k.log
 #python run_1.py --file ../logs/Thunder_2k.log
-#python run_1.py --file ../logs/HDFS_2k.log
+#python run_1.py --file ../logs/Windows_2k.log
 
 nohup python run_1.py --file ../logs/error.log > error.l1 2>&1 &
 nohup python run_1.py --file ../logs/HDFS_2k.log > HDFS_2k.l1 2>&1 &
