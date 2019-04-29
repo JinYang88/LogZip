@@ -73,6 +73,7 @@ def runfile(filepath):
                 line = line.replace("logfile_path", f"./{logname}")
             if "TimeFormat" in line:
                 for key in timeformat:
+                    print("Trying format", key)
                     if key in logname:
                         line = line.replace("TimeFormat", timeformat[logname])
                         print("Use timeformat {} for {}".format(timeformat[logname], logname))
