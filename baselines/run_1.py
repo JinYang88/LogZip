@@ -12,7 +12,16 @@ import subprocess
 parser = argparse.ArgumentParser()
 parser.add_argument('--file', type=str, default="../logs/HDFS_2k.log")
 args = vars(parser.parse_args())
-    
+
+#4;Timestamp;"[%d/%b/%Y:%H:%M:%S %z] "|1;IP
+timeformat = {
+        "Spark": '1;Timestamp;%y/%m/%d %H:%M:%S ', # 15/09/01 18:14:51 
+        "Windows": '1;Timestamp;"%Y-%m-%d %H:%M:%S", ',  # 2016-09-28 04:30:31
+        "Thunder": '3;Timestamp;%Y.%m.%d ', # 2005.11.09 
+        "Andriod": '1;Timestamp;%y-%m', # 04-23
+        "HDFS": '' # 04-23
+        }
+
 def get_FileSize(filePath):
     fsize = os.path.getsize(filePath)
     fsize = fsize/float(1024*1024)
@@ -62,6 +71,8 @@ def runfile(filepath):
         for line in fr.readlines():
             if "logfile_path" in line:
                 line = line.replace("logfile_path", f"./{logname}")
+            if "TimeFormat" in line:
+                line = line.replace("TimeFormat", timeformat[logname])
             content.append(line)
     with open(os.path.join(dst, "generate_report.rb"), "w") as fw:
         fw.writelines(content)
@@ -86,7 +97,7 @@ def runfile(filepath):
                glob.glob(os.path.join(output_dir, "*.dat")) + \
                glob.glob(os.path.join(output_dir, "*.idx"))
     
-    compressed_size = sum([get_FileSize(file) for file in outfiles])
+    compressed_size = round(sum([get_FileSize(file) for file in outfiles]), 2)
     original_size = get_FileSize(filepath)
     compress_ratio = round(original_size / compressed_size, 2)
 #    
