@@ -81,11 +81,14 @@ def runfile(filepath):
     time_taken = round(end-start, 3)
     os.chdir("../../")
 
-#    outfiles = glob.glob(os.path.join(output_dir, "*.bz2"))
-#    
-#    compressed_size = sum([get_FileSize(file) for file in outfiles])
-#    original_size = get_FileSize(filepath)
-#    compress_ratio = round(original_size / compressed_size, 2)
+    outfiles = glob.glob(os.path.join(output_dir, "*.mdl")) + \
+               glob.glob(os.path.join(output_dir, "*.aux")) + \
+               glob.glob(os.path.join(output_dir, "*.dat")) + \
+               glob.glob(os.path.join(output_dir, "*.idx"))
+    
+    compressed_size = sum([get_FileSize(file) for file in outfiles])
+    original_size = get_FileSize(filepath)
+    compress_ratio = round(original_size / compressed_size, 2)
 #    
     firstline = True
     if os.path.isfile("report_1.csv"):
