@@ -61,7 +61,7 @@ def runfile(filepath):
     with open(os.path.join(dst, "generate_report.rb"), "r") as fr:
         for line in fr.readlines():
             if "logfile_path" in line:
-                line = line.replace("logfile_path", "./logname")
+                line = line.replace("logfile_path", f"./{logname}")
             content.append(line)
     with open(os.path.join(dst, "generate_report.rb"), "w") as fw:
         fw.writelines(content)
