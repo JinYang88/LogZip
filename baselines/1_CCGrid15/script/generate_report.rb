@@ -1,13 +1,13 @@
 #!/usr/bin/ruby
 
-$log_file = "dataset/fp.log"
-$report_file = "report/fp.csv"
+$log_file = "logfile_path"
+$report_file = "./report.csv"
 $sep = ","
-$bin = "bin/compressor_cmd_tool"
+$bin = "./bin/compressor_cmd_tool"
 
 def generate_head()
     log_info = `wc #{$log_file}`
-    head_line = "seed_entry_num#{$sep}expand_ratio#{$sep}trainTime(s)#{$sep}model_size(B)#{$sep}compress_time(s)#{$sep}data_size(B)#{$sep}data_ratio(%)#{$sep}total_ratio(%)#{$sep}decompress_time(s)"
+    head_line = "seed_entry_num#{$sep}expand_ratio#{$sep}trainTime(s)#{$sep}model_size(B)#{$sep}compress_time(s)#{$sep}data_size(B)#{$sep}data_ratio(%)#{$sep}total_ratio(%)"
     File.open($report_file, 'w') do |file|
         file.puts(log_info)
         file.puts(head_line)
@@ -54,15 +54,15 @@ def generate_one_entry(expand_ratio)
     total_ratio = ((data_byte_num + model_byte_num + 0.0) / $log_byte_num) * 100
 
     #decompress
-    raw_file_name = $log_file + ".#{seed_ratio}.raw"
-    decompress_cmd = "#{$bin} -d #{output_file_name} -m #{model_file_name} -o #{raw_file_name}"
-    decompress_time = measure_exe_time decompress_cmd
+    #raw_file_name = $log_file + ".#{seed_ratio}.raw"
+    #decompress_cmd = "#{$bin} -d #{output_file_name} -m #{model_file_name} -o #{raw_file_name}"
+    #decompress_time = measure_exe_time decompress_cmd
 
-    diff = `diff #{$log_file} #{raw_file_name}`
-    abort("#{$log_file} does not match decompress result #{raw_file_name}!") if diff.size > 0
+    #diff = `diff #{$log_file} #{raw_file_name}`
+    #abort("#{$log_file} does not match decompress result #{raw_file_name}!") if diff.size > 0
 
     File.open($report_file, 'a') do |file|
-        file.puts "#{seed_entry_num}#{$sep}#{expand_ratio}#{$sep}#{train_time}#{$sep}#{model_byte_num}#{$sep}#{compress_time}#{$sep}#{data_byte_num}#{$sep}#{data_ratio}#{$sep}#{total_ratio}#{$sep}#{decompress_time}"
+        file.puts "#{seed_entry_num}#{$sep}#{expand_ratio}#{$sep}#{train_time}#{$sep}#{model_byte_num}#{$sep}#{compress_time}#{$sep}#{data_byte_num}#{$sep}#{data_ratio}#{$sep}#{total_ratio}#{$sep}"
     end
     puts "Succ in generate report for seed ratio: #{seed_ratio}!"
 end
