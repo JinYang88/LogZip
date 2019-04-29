@@ -70,7 +70,7 @@ end
 def generate_huffman_report()
     $log_entry_num = file_entry_num $log_file
     $log_byte_num = file_byte_num $log_file
-    [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000].reverse_each do |expand_ratio|
+    [1000].reverse_each do |expand_ratio|
         generate_one_entry(expand_ratio)
     end
 end
