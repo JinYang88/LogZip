@@ -21,8 +21,8 @@ import shutil
 import time
 
 class LogParser(object):
-    def __init__(self, indir, outdir, log_format, top_event=2000, rex=[], n_workers=1):
-        self.indir = indir
+    def __init__(self, tmp_dir, outdir, log_format, top_event=2000, rex=[], n_workers=1):
+        self.tmp_dir = tmp_dir
         self.outdir = outdir
         self.log_format = log_format
         self.rex = rex
@@ -39,18 +39,10 @@ class LogParser(object):
         return x
 
     def read_data(self, logname):
-        timemark = time.strftime('%Y%m%d-%H%M%S', time.localtime(time.time()))
-        self.tmp_dir = os.path.join(self.outdir, logname + "_tmp_" + timemark)
-        print("Tmp files are in {}".format(self.tmp_dir))
-        if os.path.isdir(self.tmp_dir):
-            shutil.rmtree(self.tmp_dir)
-        if not os.path.isdir(self.tmp_dir):
-            os.makedirs(self.tmp_dir)
-        
         ########## Field Extraction TIME begin
         start_extract_time = time.time()
         loader = logloader.LogLoader(self.log_format, self.tmp_dir, self.n_workers)
-        self.log_dataframe = loader.load_to_dataframe(os.path.join(self.indir, logname))
+        self.log_dataframe = loader.load_to_dataframe(logname)
         end_extract_time = time.time()
         self.field_extraction_time = end_extract_time - start_extract_time
         ########## Field Extraction TIME end

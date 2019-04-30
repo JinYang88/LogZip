@@ -19,8 +19,19 @@ from collections import defaultdict
 from itertools import zip_longest
 from itertools import islice
 import pickle
+import subprocess
+import argparse
 
-#split_regex = re.compile("([^a-zA-Z0-9]+)")
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--file', type=str, default="../logs/HDFS_2k.log")
+parser.add_argument('--log_format', type=str, default="")
+parser.add_argument('--tmp_dir', type=str, default="")
+parser.add_argument('--subprocess', type=bool, default=False)
+
+
+args = vars(parser.parse_args())
+
 
 split_chars = "([\.\-_\:\,\*&#@|{}() $]+)"
 split_regex = re.compile(split_chars)
@@ -54,6 +65,12 @@ def gzip_dict(adict):
     return b"".join([gzip.compress(bytes(str({k:v}), encoding="utf-8"))\
                              for k, v in adict.items()])
 
+def get_FileSize(filePath):
+    fsize = os.path.getsize(filePath)
+    fsize = fsize/float(1024)
+    return round(fsize, 2)
+
+
 class Ziplog():
     def __init__(self, outdir, n_workers, kernel="gz", level=3):
         self.outdir = outdir
@@ -82,21 +99,7 @@ class Ziplog():
         focus_columns = [col for col in self.para_df.columns if col not in ignore_columns]
         
         t1 = time.time()
-        if self.n_workers == 1:
-            splited_columns = split_normal(self.para_df[focus_columns])
-        else:
-            chunk_size = min(1000000, self.para_df.shape[0] // self.n_workers)
-            result_chunks = []
-            pool = mp.Pool(processes=self.n_workers)
-            result_chunks = [pool.apply_async(split_normal,\
-                            args=(self.para_df[focus_columns].iloc[i:i+chunk_size],))
-                            for i in range(0, self.para_df.shape[0], chunk_size)]
-            pool.close()
-            pool.join()
-            splited_columns = [[] for _ in range(len(focus_columns))] 
-            for result in result_chunks:
-                for idx, col in enumerate(result.get()):
-                    splited_columns[idx].extend(col)
+        splited_columns = split_normal(self.para_df[focus_columns])
         t2 = time.time()
         self.field_extraction_time += t2 - t1 
 
@@ -139,15 +142,11 @@ class Ziplog():
                 max_split_position = len(sorted(paras, key=\
                                                 lambda x: len(x[star_idx]))[-1][star_idx])
                 star_split_mapping[star_idx] = max_split_position
-            file_writers = []
-            for star_idx in range(star_position):
-                split_position = star_split_mapping[star_idx]
-                for split_idx in range(split_position):
-                    file_writers.append(
-                            open(os.path.join(self.tmp_dir,\
-                                              f"{eid}_{star_idx}_{split_idx}.csv"), "w"))
-                    
-            buffers = [[] for _ in file_writers]
+
+
+            buffers = [[] for star_idx in range(star_position)
+                for split_idx in range(star_split_mapping[star_idx])]
+                
             for row in paras:
                 writer_idx = 0
                 for star_idx in range(star_position):
@@ -165,8 +164,16 @@ class Ziplog():
                         writer_idx += 1
             t2 = time.time()
             self.buffer_time += t2 - t1
-            [fw.writelines(buffers[idx]) for idx, fw in enumerate(file_writers)]
-            [fw.close() for fw in file_writers]
+
+            idx = 0
+            for star_idx in range(star_position):
+                split_position = star_split_mapping[star_idx]
+                for split_idx in range(split_position):
+                    with open(os.path.join(self.tmp_dir,\
+                                              f"{eid}_{star_idx}_{split_idx}.csv"), "w") as fw:
+                        fw.writelines(buffers[idx])
+                        idx += 1
+                        
             t3 = time.time()
             self.writing_time += t3 - t2
         print(f"Buffer taken {self.buffer_time}.")
@@ -199,19 +206,7 @@ class Ziplog():
         
         ### EXTRACT FIELD begin
         t1 = time.time()
-        if self.n_workers == 1:
-            splitted_para = split_para(focus_df["ParameterList"])
-        else:
-            chunk_size = min(1000000, 1 + focus_df.shape[0] // self.n_workers)
-            result_chunks = []
-            pool = mp.Pool(processes=self.n_workers)
-            result_chunks = [pool.apply_async(split_para,\
-                             args=(focus_df["ParameterList"].iloc[i:i+chunk_size],))
-                             for i in range(0, focus_df.shape[0], chunk_size)]
-            pool.close()
-            pool.join()
-            splitted_para = []
-            [splitted_para.extend(_.get()) for _ in result_chunks]
+        splitted_para = split_para(focus_df["ParameterList"])
         t2 = time.time()
         focus_df["ParameterList"] = splitted_para
         self.field_extraction_time += t2 - t1
@@ -269,8 +264,7 @@ class Ziplog():
         
     def zip_file(self, outname, filename, tmp_dir, para_df=None, delete_tmp=True):
         self.outname = outname
-        timemark = time.strftime('%Y%m%d-%H%M%S', time.localtime(time.time()))
-        self.tmp_dir = os.path.join(self.outdir, filename + "_tmp_" + timemark)
+        self.tmp_dir = tmp_dir
         self.para_df = para_df.fillna("")
         if os.path.isdir(self.tmp_dir):
             shutil.rmtree(self.tmp_dir)
@@ -286,27 +280,56 @@ class Ziplog():
         self.__kernel_compress()
         t2 = time.time()
         self.packing_time += t2 - t1
+
         
-                
+def __zip_file(filepath, tmp_dir, log_format, n_workers=1, level=3, top_event=2000, kernel="gz"):
+    print("Tmp files are in {}".format(tmp_dir))
+    if os.path.isdir(tmp_dir):
+        shutil.rmtree(tmp_dir)
+    if not os.path.isdir(tmp_dir):
+        os.makedirs(tmp_dir)
+    outname = os.path.basename(filepath) + ".logzip"
+    outdir = tmp_dir
+    parser = NaiveParser.LogParser(tmp_dir, outdir, log_format, n_workers=n_workers, top_event=top_event)
+    structured_log = parser.parse(logfile)
+    
+    zipper = Ziplog(outdir=outdir, n_workers=n_workers, kernel=kernel, level=level)
+    zipper.zip_file(outname=outname, filename=logfile, tmp_dir=tmp_dir,
+                    para_df=structured_log)
     
 
+def zip_file(filepath, outdir, log_format, n_workers=2, level=3, top_event=2000, kernel="gz"):
+    # split file into files
+    logname = os.path.basename(filepath)
+    timemark = time.strftime('%Y%m%d-%H%M%S', time.localtime(time.time()))
+    tmp_dir = os.path.join(outdir, logname + "_tmp_" + timemark)
+    print("Tmp files are in {}".format(tmp_dir))
+    if os.path.isdir(tmp_dir):
+        shutil.rmtree(tmp_dir)
+    if not os.path.isdir(tmp_dir):
+        os.makedirs(tmp_dir)
+        
+    kb_per_chunk = int(get_FileSize(filepath) // n_workers) + 1
+    cmd = "split -b {}k {} {}".format(kb_per_chunk, filepath, os.path.join(tmp_dir, "tmplog_"))
+#    print("run:", cmd)
+    subprocess.call(cmd, stderr=subprocess.STDOUT, shell=True)
+    
+    for idx, file in enumerate(glob.glob(os.path.join(tmp_dir, "tmplog_*"))):
+        cmd = f'python ./zip_log.py --file {file} --log_format "{log_format}" --subprocess True --tmp_dir {tmp_dir}_{idx}'
+#        print("run", cmd)
+        out = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True)
+        print(out)
+    
 if __name__ == "__main__":
     import NaiveParser
-    
-    n_workers     = 2  # Number of processes.
-    level         = 3  # Compression level.
-    top_event     = 2000 # Only templates whose occurrence is ranked above top_event are taken into consideration.
-    kernel        = "gz"  # Compression kernels. Options: "gz", "bz2", "lzma".
+    logfile       = "../../logs/HDFS_2k.log"  # Raw log file."
+    outdir        = "../../zip_out/"  # Output directory, if not exists, it will be created.
     log_format    = '<Date> <Time> <Pid> <Level> <Component>: <Content>'  # Log format to extract fields.
     
-#    logfile       = "HDFS_1g.log"  # Raw log file.
-#    logfile       = "HDFS_100MB.log"
-    logfile       = "HDFS_2k.log"  # Raw log file."
-    indir         = "../../logs/"  # Input directory
-    outdir        = "../../zip_out/"  # Output directory, if not exists, it will be created.
-    outname       = logfile + ".nnlogzip"  # Output file name.
+    if args["subprocess"]:
+        __zip_file(logfile, args["tmp_dir"], log_format)
+    else:
+        zip_file(logfile, outdir, log_format)
     
-    parser = NaiveParser.LogParser(indir, outdir, log_format, n_workers=n_workers, top_event=top_event)
-    structured_log = parser.parse(logfile)
-    zipper = Ziplog(outdir=outdir, n_workers=n_workers, kernel=kernel, level=level)
-    zipper.zip_file(outname=outname, filename=logfile, para_df=structured_log)
+    
+
