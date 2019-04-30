@@ -21,13 +21,14 @@ log_format_dict = {
 }
 
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument("--worker", type=int, default="1")
 parser.add_argument("--postfix", type=str, default="2k")
 parser.add_argument("--dataset", type=str, default="HDFS")
 args = vars(parser.parse_args())
+del parser
 
+print(args)
 
 postfix = args["postfix"]
 n_workers = args["worker"]  # Number of processes.

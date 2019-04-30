@@ -349,15 +349,18 @@ def zip_file(filepath, outdir, log_format, n_workers=2, level=3, top_event=2000,
 
 def logzip(logfile, outdir, log_format, n_workers=1,
                  level=3, top_event=2000, kernel="gz", report_file='./report.csv'):
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--file', type=str, default="../logs/HDFS_2k.log")
-    parser.add_argument('--log_format', type=str, default="")
-    parser.add_argument('--tmp_dir', type=str, default="")
-    parser.add_argument('--subprocess', type=bool, default=False)
-    
-    args = vars(parser.parse_args())
+    args = None
+    try:
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--file', type=str, default="../logs/HDFS_2k.log")
+        parser.add_argument('--log_format', type=str, default="")
+        parser.add_argument('--tmp_dir', type=str, default="")
+        parser.add_argument('--subprocess', type=bool, default=False)
+        args = vars(parser.parse_args())
+    except:
+        pass
 
-    if args["subprocess"]:
+    if args and args["subprocess"]:
         __zip_file(args["file"], args["tmp_dir"], args["log_format"])
     else:
         zip_file(logfile, outdir, log_format, n_workers=n_workers,
