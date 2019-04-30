@@ -87,13 +87,15 @@ class LogParser(object):
         ########## PARSING TIME end
             
     def dump(self, logname):
+        logname = os.path.basename(logname)
         self.log_dataframe.to_csv(os.path.join(self.outdir, logname + '_structured.csv'), index=False)
         occ_dict = dict(self.log_dataframe['EventTemplate'].value_counts())
         df_event = pd.DataFrame()
         df_event['EventTemplate'] = self.log_dataframe['EventTemplate'].unique()
         df_event['EventId'] = df_event['EventTemplate'].map(lambda x: self.template_eid_mapping[x])
         df_event['Occurrences'] = df_event['EventTemplate'].map(occ_dict)
-        df_event.to_csv(os.path.join(self.outdir, logname + '_templates.csv'), index=False, columns=['EventId', 'EventTemplate', 'Occurrences'])
+        df_event.to_csv(os.path.join(self.outdir, logname + '_templates.csv'),
+                        index=False, columns=['EventId', 'EventTemplate', 'Occurrences'])
 
     def parse(self, logname, dump=True):
         self.read_data(logname)
