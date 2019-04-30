@@ -249,10 +249,21 @@ class Ziplog():
         with open(os.path.join(self.tmp_dir, "parameter_mapping.json"), "w") as fw:
             json.dump(self.index_para_dict, fw)        
 
-        # compress begin
+        # compress begin (compress all into one)
         gzip_file_name = os.path.join(self.outdir, \
                                   "{}.tar.{}".format(self.outname, self.kernel))
-        os.system(f'tar zcvf {gzip_file_name} {self.tmp_dir}')
+#        cmd = f'tar zcvf {gzip_file_name} {self.tmp_dir}'
+#        subprocess.check_output(cmd)
+        
+        # compress begin (compress each one and then to one)
+        for file in glob.glob(os.path.join(self.tmp_dir, "*")):
+            per_outname = file + ".tar.gz"
+            print(per_outname, file)
+            cmd = f'tar zcvf {per_outname} {file}'
+            subprocess.check_output(cmd, shell=True)
+            os.remove(file)
+        cmd = f'tar zcvf {gzip_file_name} {self.tmp_dir}'
+        subprocess.check_output(cmd, shell=True)  
 
         
     def zip_file(self, outname, filename, tmp_dir, para_df=None, delete_tmp=True):
@@ -272,12 +283,11 @@ class Ziplog():
         self.packing_time += t2 - t1
 
         
-def __zip_file(filepath, tmp_dir, log_format, level=3, top_event=2000, kernel="gz"):
+def __zip_file(filepath, tmp_dir, log_format, outname, level=3, top_event=2000, kernel="gz"):
     print("Tmp files are in {}".format(tmp_dir))
     if not os.path.isdir(tmp_dir):
         os.makedirs(tmp_dir)
         
-    outname = os.path.basename(filepath) + ".logzip"
     outdir = tmp_dir # output to current tmp dir
     parser = NaiveParser.LogParser(tmp_dir, outdir, log_format, n_workers=1, top_event=top_event)
     structured_log = parser.parse(filepath)
@@ -320,7 +330,6 @@ def zip_file(filepath, outdir, log_format, n_workers=2, level=3, top_event=2000,
 #        processes.append(subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True))
 #    [p.wait() for p in processes]
     
-    print("it's", tmp_dir)
     compressed_size = 0
     for idx in range(len(processes)):
         sub_outfile = glob.glob(os.path.join(tmp_dir, str(idx), "*logzip*"))[0]
@@ -360,8 +369,9 @@ def logzip(logfile, outdir, log_format, n_workers=1,
     except:
         pass
 
+    outname = os.path.basename(logfile) + ".logzip"
     if args and args["subprocess"]:
-        __zip_file(args["file"], args["tmp_dir"], args["log_format"])
+        __zip_file(args["file"], args["tmp_dir"], args["log_format"], outname=outname)
     else:
         zip_file(logfile, outdir, log_format, n_workers=n_workers,
                  level=level, top_event=top_event, kernel=kernel, report_file=report_file)
@@ -372,7 +382,7 @@ if __name__ == "__main__":
     logfile       = "../../logs/HDFS_2k.log"  # Raw log file."
     outdir        = "../../zip_out/"  # Output directory, if not exists, it will be created.
     log_format    = '<Date> <Time> <Pid> <Level> <Component>: <Content>'  # Log format to extract fields.
-    n_workers     = 1
+    n_workers     = 2
     level         = 3
     top_event     = 2000
     kernel        = "gz"
