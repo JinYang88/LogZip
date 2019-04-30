@@ -39,7 +39,8 @@ class LogParser(object):
         return x
 
     def read_data(self, logname):
-        self.tmp_dir = os.path.join(self.outdir, logname + "_tmp")
+        timemark = time.strftime('%Y%m%d-%H%M%S', time.localtime(time.time()))
+        self.tmp_dir = os.path.join(self.outdir, logname + "_tmp_" + timemark)
         print("Tmp files are in {}".format(self.tmp_dir))
         if os.path.isdir(self.tmp_dir):
             shutil.rmtree(self.tmp_dir)

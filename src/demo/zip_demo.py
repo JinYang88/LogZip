@@ -3,7 +3,7 @@ sys.path.append("../")
 from logzip import zip_log
 from logzip import NaiveParser
 
-n_workers     = 8  # Number of processes.
+n_workers     = 1  # Number of processes.
 level         = 3  # Compression level.
 top_event     = 2000 # Only templates whose occurrence is ranked above top_event are taken into consideration.
 kernel        = "gz"  # Compression kernels. Options: "gz", "bz2", "lzma".
@@ -19,4 +19,5 @@ if __name__ == "__main__":
     parser = NaiveParser.LogParser(indir, outdir, log_format, n_workers=n_workers)
     structured_log = parser.parse(logfile)
     zipper = zip_log.Ziplog(outdir=outdir, n_workers=n_workers, kernel=kernel, level=level)
-    zipper.zip_file(outname=outname, filename=logfile, para_df=structured_log)
+    zipper.zip_file(outname=outname, filename=logfile, tmp_dir=parser.tmp_dir,
+                    para_df=structured_log)

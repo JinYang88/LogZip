@@ -118,7 +118,8 @@ class Ziplog():
                         buffers[col_idx].append("\n")
             [fw.writelines(buffers[idx]) for idx, fw in enumerate(file_writers)]
             [fw.close() for fw in file_writers]
-        self.file_normal_column_dict["EventId_0"] = self.para_df["EventId"]
+        with open(os.path.join(self.tmp_dir, "EventId_0.csv"), "w") as fw:
+            [fw.write(item + "\n") for item in self.para_df["EventId"]]
         t2 = time.time()
         self.transpose_time += t2 - t1
         ## Writing end
@@ -134,50 +135,32 @@ class Ziplog():
             t1 = time.time()         
             paras = dataframe.loc[dataframe["EventId"]==eid, "ParameterList"].tolist()
             star_position = len(paras[0])
-            star_split_mapping = {}
-            for star_idx in range(star_position):
-                max_split_position = len(sorted(paras, key=\
-                                                lambda x: len(x[star_idx]))[-1][star_idx])
-                star_split_mapping[star_idx] = max_split_position
             file_writers = []
             for star_idx in range(star_position):
-                split_position = star_split_mapping[star_idx]
-                for split_idx in range(split_position):
-                    file_writers.append(
-                            open(os.path.join(self.tmp_dir,\
-                                              f"{eid}_{star_idx}_{split_idx}.csv"), "w"))
+                    file_writers.append(open(os.path.join(self.tmp_dir,\
+                                      f"{eid}_{star_idx}.csv"), "w"))
                     
             buffers = [[] for _ in file_writers]
             for row in paras:
-                writer_idx = 0
                 for star_idx in range(star_position):
-                    split_position = star_split_mapping[star_idx]
-                    max_row_split_len = len(row[star_idx])
-                    for split_idx in range(split_position):
-                        if split_idx < max_row_split_len:
-                            if self.level == 3:
-                                buffers[writer_idx].append(\
-                                       self.para_index_dict[row[star_idx][split_idx]] + "\n")
-                            else:
-                                buffers[writer_idx].append(row[star_idx][split_idx] + "\n")
-                        else:
-                            buffers[writer_idx].append("\n")
-                        writer_idx += 1
+                    if self.level == 3:
+                        buffers[star_idx].append(\
+                               self.para_index_dict[row[star_idx]] + "\n")
+                    else:
+                        buffers[star_idx].append(row[star_idx] + "\n")
             t2 = time.time()
             self.buffer_time += t2 - t1
             [fw.writelines(buffers[idx]) for idx, fw in enumerate(file_writers)]
             [fw.close() for fw in file_writers]
             t3 = time.time()
             self.writing_time += t3 - t2
-        print(f"Buffer taken {self.buffer_time}.")
-        print(f"Write lines taken {self.writing_time}.")
             
             
     def __build_para_index(self, dataframe):
         index = 0
         self.para_index_dict = {}
         for paras in dataframe["ParameterList"]:
-            para_set = set([item for sublist in paras for item in sublist])
+            para_set = set(paras)
             for upara in para_set:
                 index += 1
                 index_64 = baseN(index, 64)
@@ -198,23 +181,23 @@ class Ziplog():
         del self.para_df
         
         ### EXTRACT FIELD begin
-        t1 = time.time()
-        if self.n_workers == 1:
-            splitted_para = split_para(focus_df["ParameterList"])
-        else:
-            chunk_size = min(1000000, 1 + focus_df.shape[0] // self.n_workers)
-            result_chunks = []
-            pool = mp.Pool(processes=self.n_workers)
-            result_chunks = [pool.apply_async(split_para,\
-                             args=(focus_df["ParameterList"].iloc[i:i+chunk_size],))
-                             for i in range(0, focus_df.shape[0], chunk_size)]
-            pool.close()
-            pool.join()
-            splitted_para = []
-            [splitted_para.extend(_.get()) for _ in result_chunks]
-        t2 = time.time()
-        focus_df["ParameterList"] = splitted_para
-        self.field_extraction_time += t2 - t1
+#        t1 = time.time()
+#        if self.n_workers == 1:
+#            splitted_para = split_para(focus_df["ParameterList"])
+#        else:
+#            chunk_size = min(1000000, 1 + focus_df.shape[0] // self.n_workers)
+#            result_chunks = []
+#            pool = mp.Pool(processes=self.n_workers)
+#            result_chunks = [pool.apply_async(split_para,\
+#                             args=(focus_df["ParameterList"].iloc[i:i+chunk_size],))
+#                             for i in range(0, focus_df.shape[0], chunk_size)]
+#            pool.close()
+#            pool.join()
+#            splitted_para = []
+#            [splitted_para.extend(_.get()) for _ in result_chunks]
+#        t2 = time.time()
+#        focus_df["ParameterList"] = splitted_para
+#        self.field_extraction_time += t2 - t1
         ### EXTRACT FIELD end
         
         
@@ -267,7 +250,7 @@ class Ziplog():
         os.system(f'tar zcvf {gzip_file_name} {self.tmp_dir}')
 
         
-    def zip_file(self, outname, filename, tmp_dir, para_df=None, delete_tmp=True):
+    def zip_file(self, outname, filename, para_df=None, delete_tmp=True):
         self.outname = outname
         timemark = time.strftime('%Y%m%d-%H%M%S', time.localtime(time.time()))
         self.tmp_dir = os.path.join(self.outdir, filename + "_tmp_" + timemark)
@@ -293,7 +276,7 @@ class Ziplog():
 if __name__ == "__main__":
     import NaiveParser
     
-    n_workers     = 2  # Number of processes.
+    n_workers     = 1  # Number of processes.
     level         = 3  # Compression level.
     top_event     = 2000 # Only templates whose occurrence is ranked above top_event are taken into consideration.
     kernel        = "gz"  # Compression kernels. Options: "gz", "bz2", "lzma".
