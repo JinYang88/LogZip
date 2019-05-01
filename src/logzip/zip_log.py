@@ -286,6 +286,7 @@ def zip_file(filepath, outdir, log_format, n_workers=2, level=3, top_event=2000,
                 ' --subprocess True --tmp_dir {}').format(script_path, file, log_format,
                                               os.path.join(tmp_dir, str(idx)))
         print(cmd)
+        time.sleep(3)
         processes.append(subprocess.Popen(cmd, stderr=subprocess.STDOUT, shell=True))
     [p.wait() for p in processes]
 #        processes.append(subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True))
@@ -333,9 +334,6 @@ def logzip(logfile, outdir, log_format, n_workers=1,
 
     outname = os.path.basename(logfile) + ".logzip"
     if args and args["subprocess"]:
-    
-
-    
         __zip_file(args["file"], args["tmp_dir"], args["log_format"], outname=outname)
     else:
         zip_file(logfile, outdir, log_format, n_workers=n_workers,
