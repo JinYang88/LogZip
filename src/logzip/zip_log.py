@@ -24,8 +24,193 @@ import argparse
 
 
     
-split_chars = "([\.\-_\:\,\*&#@|{}() $]+)"
-split_regex = re.compile(split_chars)
+split_regex = re.compile("([^a-zA-Z0-9]+)")
+
+class Ziplog():
+    def __init__(self, outdir, kernel="gz", level=3):
+        self.outdir = outdir
+        self.kernel = kernel
+        self.io_time = 0
+        self.level = level
+
+    def directly_zip(self):
+        ignore_columns = ["LineId", "EventTemplate", "ParameterList", "EventId"]
+        focus_columns = [col for col in self.para_df.columns if col not in ignore_columns]
+        for column in focus_columns:
+            self.para_df[column].to_csv(os.path.join(self.tmp_dir, column+"_0.csv"), index=False)
+
+    def zip_normal(self):
+        ignore_columns = ["LineId", "EventTemplate", "ParameterList", "EventId"]
+        focus_columns = [col for col in self.para_df.columns if col not in ignore_columns]
+        splited_df = split_normal(self.para_df[focus_columns])
+        self.para_df.drop(focus_columns, axis=1, inplace=True)
+        
+        t1 = time.time()
+        for column_name in splited_df.columns:
+            subdf = pd.DataFrame(splited_df[column_name].tolist())
+            subdf.fillna("", inplace=True)
+            subdf.columns = range(subdf.shape[1])
+            for col in subdf.columns:
+                filepath = os.path.join(self.tmp_dir, column_name + "_" + str(col) + ".csv")
+                subdf[col].to_csv(filepath, index=False)
+        self.para_df["EventId"].to_csv(os.path.join(self.tmp_dir, "EventId" + "_" + str(0) + ".csv"),
+                             index=False)
+        t2 = time.time()
+        self.io_time += t2 - t1
+
+        del splited_df
+        gc.collect()
+
+    def zip_content(self):
+        template_mapping = dict(zip(self.para_df["EventId"], self.para_df["EventTemplate"]))
+        with open(os.path.join(self.tmp_dir, "template_mapping.json"), "w") as fw:
+            json.dump(template_mapping, fw)
+
+        print("Splitting parameters.")
+        t1 = time.time()
+        filename_para_dict = defaultdict(list)
+        eids = self.para_df["EventId"].unique()
+        print("{} events total.".format(len(eids)))
+        eids = [eid for eid in eids if "<*>" in template_mapping[eid]]
+        print("{} events to be split.".format(len(eids)))
+        filename_para_dict = split_para2(self.para_df.loc[self.para_df["EventId"].isin(eids), ["EventId", "ParameterList"]])
+        t2 = time.time()
+        print("Splitting parameters done. Time taken {:.2f}s".format(t2 - t1))
+        del self.para_df
+        gc.collect()
+
+        if self.level == 3:
+            print("Indexing parameters.")
+            t1 = time.time()
+            para_idx = 1
+            para_idx_dict = {}
+            idx_para_dict = {}
+            para_idx_dict[""] = "0"
+            idx_para_dict["0"] = ""
+            for filename, para_lists in filename_para_dict.items():
+                for para_list in para_lists:
+                    for para in para_list:
+                        if para not in para_idx_dict:
+                            idx_64 = baseN((para_idx), 64)
+                            para_idx_dict[para] = idx_64
+                            idx_para_dict[idx_64] = para
+                            para_idx += 1
+            t2 = time.time()
+            with open(os.path.join(self.tmp_dir, "parameter_mapping.json"), "w") as fw:
+                json.dump(idx_para_dict, fw)
+            print("Indexing parameters done. Time taken {:.2f}s".format(t2 - t1))
+        else:
+            para_idx_dict = None
+
+        print("Saving parameters.")
+        t1 = time.time()
+        save_para(filename_para_dict, self.tmp_dir, para_idx_dict)
+        t2 = time.time()
+        self.io_time += t2 - t1
+        print("Saving parameters done. Time taken {:.2f}s".format(t2 - t1))
+    
+    def zip_folder(self, zipname):
+        allfiles = glob.glob(os.path.join(self.tmp_dir, "*.csv")) + glob.glob(os.path.join(self.tmp_dir, "*.json"))
+        files_to_tar(allfiles, self.kernel)
+        if self.kernel == "bz2" or self.kernel == "gz":
+            tarall = tarfile.open(os.path.join(self.outdir, "{}.tar.{}".format(zipname, self.kernel)) , "w:{}".format(self.kernel))
+            for idx, filepath in enumerate(glob.glob(os.path.join(self.tmp_dir, "*.tar.{}".format(self.kernel))), 1):
+                tarall.add(filepath, arcname=os.path.basename(filepath))
+            tarall.close()
+        elif self.kernel == "lzma":
+            tarall = tarfile.open(os.path.join(self.outdir, "{}.tar.{}".format(zipname, self.kernel)) , "w:bz2")
+            for idx, filepath in enumerate(glob.glob(os.path.join(self.tmp_dir, "*.lzma")), 1):
+                tarall.add(filepath, arcname=os.path.basename(filepath))
+            tarall.close()
+
+    def zip_para_df(self):
+        if self.level == 1:
+            self.directly_zip()
+        else:
+            self.para_df.drop("Content", inplace=True, axis=1)
+            self.zip_normal()
+            print("Zip content begin.")
+            t1 = time.time()
+            self.zip_content()
+            t2 = time.time()
+            print("Zip content done. Time taken: {:.2f}s".format(t2-t1))
+
+        print("Zip folder begin.")
+        t1 = time.time()
+        self.zip_folder(zipname=self.outname)
+        t2 = time.time()
+        self.io_time += t2 - t1
+        print("Zip folder done. Time taken: {:.2f}s".format(t2-t1))
+
+    def zip_file(self, tmp_dir, outname , para_file_path=None, para_df=None, delete_tmp=True):
+        self.outname = outname
+        self.tmp_dir = tmp_dir
+
+        t1 = time.time()
+        if para_file_path:
+            self.para_df = pd.read_csv(para_file_path, nrows=100000)
+            t2 = time.time()
+            print("Loading file done, Time taken: {:.2f}s".format(t2-t1))
+            self.io_time += t2 - t1
+        elif para_df is not None:
+            self.para_df = para_df
+            self.para_df.fillna("", inplace=True)
+        self.zip_para_df()
+        t3 = time.time()
+        print("Zip log done, Time taken: all: {:.2f}s, IO: {:.2f}s, real: {:.2f}s".format(t3-t1, self.io_time, t3-t1-self.io_time))
+        if delete_tmp:
+            shutil.rmtree(self.tmp_dir)
+    
+
+def baseN(num, b):
+    if isinstance(num, str):
+        num = int(num)
+    if num is None: return ""
+    return ((num == 0) and "0") or \
+            (baseN(num // b, b).lstrip("0") + "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+="[num % b])
+
+def split_normal(df):
+    column_dict = {}
+    for column in df.columns:
+        df[column] =  df[column].map(lambda x: split_regex.split(x))
+    return df
+
+def split_para2(df):
+    worker_id = os.getpid()
+    filename_para_dict = defaultdict(list)
+    print("Worker {} start splitting {} lines.".format(worker_id, df.shape[0]))
+    for eidx, row in df.iterrows():
+        eid = row["EventId"]
+        for idx1, para in enumerate(row["ParameterList"]):
+            para = split_regex.split(para)
+            filename = "{}_{}".format(eid, idx1)
+            filename_para_dict[filename].append(para)
+    return filename_para_dict
+
+def save_para(filename_para_dict, path, para_idx_dict=None):
+    for filename in filename_para_dict:
+        maxlen = sorted([len(v) for v in filename_para_dict[filename]])[-1]
+        for col2 in range(maxlen):
+            filepath = os.path.join(path, filename + "_" + str(col2) + ".csv")
+            if para_idx_dict:
+                lines = [para_idx_dict[item[col2]] if col2 < len(item) else para_idx_dict[""] for item in filename_para_dict[filename]]
+            else:
+                lines = [item[col2] if col2 < len(item) else "" for item in filename_para_dict[filename]]
+            with open(filepath, "w") as fw:
+                fw.writelines("\n".join(lines))
+
+def files_to_tar(filepaths, kernel):
+    worker_id = os.getpid()
+    print("Worker {} start taring {} files.".format(worker_id, len(filepaths)))
+    for idx, filepath in enumerate(filepaths, 1):
+        if len(filepaths) > 10 and idx % (len(filepaths)// 10) == 0:
+            print("Worker {}, {}/{}".format(worker_id, idx, len(filepaths)))
+        if kernel == "gz" or kernel == "bz2":
+            tar = tarfile.open(filepath + ".tar.{}".format(kernel) , "w:{}".format(kernel))
+            tar.add(filepath, arcname=os.path.basename(filepath))
+            tar.close()
+        elif kernel == "lzma":
+            os.system('lzma -k {}'.format(filepath))
 
 def split_item(astr):
     return split_regex.split(astr)
@@ -35,17 +220,6 @@ def split_list(alist):
 
 def split_para(seires):
     return seires.map(split_list)
-
-def split_normal(dataframe):
-    return [dataframe[col].map(split_item).tolist() \
-            for col in dataframe.columns]
-
-def baseN(num, b):
-    if isinstance(num, str):
-        num = int(num)
-    if num is None: return ""
-    return ((num == 0) and "0") or \
-            (baseN(num // b, b).lstrip("0") + "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+="[num % b])
 
 def chunk_dict(data, SIZE=10000):
     it = iter(data)
@@ -65,222 +239,6 @@ def get_FileSize(filePath, unit="kb"):
     return round(fsize, 2)
 
 
-class Ziplog():
-    def __init__(self, outdir, kernel="gz", level=3):
-        self.outdir = outdir
-        self.kernel = kernel
-        self.level = level
-        
-        self.transpose_time = 0
-        self.packing_time = 0
-        self.field_extraction_time = 0
-        self.mapping_time = 0
-        self.all_filename_obj_dict = {}
-        self.file_normal_column_dict = {}
-
-    def compress_all(self):
-        self.file_all_column_dict = {}
-        ignore_columns = ["LineId", "EventTemplate", "ParameterList", "EventId"]
-        focus_columns = [col for col in self.para_df.columns if col not in ignore_columns]
-        for column in focus_columns:
-            filename = column+"_0"
-            self.file_all_column_dict[filename] = self.para_df[column]
-        del self.para_df
-
-    def compress_normal(self):
-        ignore_columns = ["LineId", "EventTemplate", "ParameterList", "EventId", "Content"]
-        focus_columns = [col for col in self.para_df.columns if col not in ignore_columns]
-        
-        t1 = time.time()
-        splited_columns = split_normal(self.para_df[focus_columns])
-        t2 = time.time()
-        self.field_extraction_time += t2 - t1 
-
-        self.para_df.drop(focus_columns, axis=1,inplace=True)
-        
-        ## Writing begin
-        t1 = time.time()
-        for idx, colname in enumerate(focus_columns):
-            max_col_num = len( sorted(splited_columns[idx], key=lambda x: len(x))[-1] )
-            file_writers = [open( os.path.join(self.tmp_dir, f"{colname}_{sub_idx}.csv"), "w")
-                            for sub_idx in range(max_col_num)]
-            buffers = [[] for _ in file_writers]
-            for row in splited_columns[idx]:
-                lrow = len(row)
-                for col_idx in range(max_col_num):
-                    if col_idx < lrow:
-                        buffers[col_idx].append(row[col_idx] + "\n")
-                    else:
-                        buffers[col_idx].append("\n")
-            [fw.writelines(buffers[idx]) for idx, fw in enumerate(file_writers)]
-            [fw.close() for fw in file_writers]
-        self.file_normal_column_dict["EventId_0"] = self.para_df["EventId"]
-        t2 = time.time()
-        self.transpose_time += t2 - t1
-        ## Writing end
-
-
-    def __pack_params(self, dataframe):
-        '''
-        Input: dataframe with tow columns [EventId, ParameterList]
-        '''
-        self.buffer_time = 0
-        self.writing_time = 0
-        for eid in dataframe["EventId"].unique():
-            t1 = time.time()         
-            paras = dataframe.loc[dataframe["EventId"]==eid, "ParameterList"].tolist()
-            star_position = len(paras[0])
-            star_split_mapping = {}
-            for star_idx in range(star_position):
-                max_split_position = len(sorted(paras, key=\
-                                                lambda x: len(x[star_idx]))[-1][star_idx])
-                star_split_mapping[star_idx] = max_split_position
-
-
-            buffers = [[] for star_idx in range(star_position)
-                for split_idx in range(star_split_mapping[star_idx])]
-                
-            for row in paras:
-                writer_idx = 0
-                for star_idx in range(star_position):
-                    split_position = star_split_mapping[star_idx]
-                    max_row_split_len = len(row[star_idx])
-                    for split_idx in range(split_position):
-                        if split_idx < max_row_split_len:
-                            if self.level == 3:
-                                buffers[writer_idx].append(\
-                                       self.para_index_dict[row[star_idx][split_idx]] + "\n")
-                            else:
-                                buffers[writer_idx].append(row[star_idx][split_idx] + "\n")
-                        else:
-                            buffers[writer_idx].append("\n")
-                        writer_idx += 1
-            t2 = time.time()
-            self.buffer_time += t2 - t1
-
-            idx = 0
-            for star_idx in range(star_position):
-                split_position = star_split_mapping[star_idx]
-                for split_idx in range(split_position):
-                    with open(os.path.join(self.tmp_dir,\
-                                              f"{eid}_{star_idx}_{split_idx}.csv"), "w") as fw:
-                        fw.writelines(buffers[idx])
-                        idx += 1
-                        
-            t3 = time.time()
-            self.writing_time += t3 - t2
-        print(f"Buffer taken {self.buffer_time}.")
-        print(f"Write lines taken {self.writing_time}.")
-            
-            
-    def __build_para_index(self, dataframe):
-        index = 0
-        self.para_index_dict = {}
-        for paras in dataframe["ParameterList"]:
-            para_set = set([item for sublist in paras for item in sublist])
-            for upara in para_set:
-                index += 1
-                index_64 = baseN(index, 64)
-                self.para_index_dict[upara] = index_64
-        self.index_para_dict = {v:k for k,v in self.para_index_dict.items()}
-        
-                
-        
-    def compress_content(self):
-        self.template_mapping = dict(zip(self.para_df["EventId"],\
-                                    self.para_df["EventTemplate"]))
-        eids = [eid for eid in self.template_mapping \
-                    if "<*>" in self.template_mapping[eid]]
-        print("{} events to be split.".format(len(eids)))
-        focus_index = self.para_df["EventId"].isin(eids)
-        focus_df = self.para_df.loc[focus_index,\
-                                    ["EventId","ParameterList"]]
-        del self.para_df
-        
-        ### EXTRACT FIELD begin
-        t1 = time.time()
-        splitted_para = split_para(focus_df["ParameterList"])
-        t2 = time.time()
-        focus_df["ParameterList"] = splitted_para
-        self.field_extraction_time += t2 - t1
-        ### EXTRACT FIELD end
-        
-        
-        ### MAPPING begin
-        t1 = time.time()
-        if self.level == 3:
-            self.__build_para_index(focus_df)
-        t2 = time.time()
-        self.mapping_time += t2 - t1
-        ### MAPPING end
-        
-        
-        ### PACKING begin
-        t1 = time.time()
-        self.__pack_params(focus_df)
-        t2 = time.time()
-        self.transpose_time += t2 - t1
-        ### PACKING end
-        
-        gc.collect()
-
-
-    def __kernel_compress(self):
-        '''
-        level1 : only normal
-        [self.file_all_column_dict]
-        ---
-        level2 : parse without index 
-        [self.file_para_dict, self.file_normal_column_dict]
-        ---
-        leve3: parse and index 
-        [self.file_para_dict, self.file_normal_column_dict]
-        '''
-        
-        def output_dict(adict):
-            for filename, content_list in adict.items():
-                with open(os.path.join(self.tmp_dir, filename+".csv"), "w") as fw:
-                    fw.writelines("\n".join(list(content_list)))
-        
-        ## merge begin
-        with open(os.path.join(self.tmp_dir, "template_mapping.json"), "w") as fw:
-            json.dump(self.template_mapping, fw)
-
-        with open(os.path.join(self.tmp_dir, "parameter_mapping.json"), "w") as fw:
-            json.dump(self.index_para_dict, fw)        
-
-        # compress begin (compress all into one)
-        gzip_file_name = os.path.join(self.outdir, \
-                                  "{}.tar.{}".format(self.outname, self.kernel))
-#        cmd = f'tar zcvf {gzip_file_name} {self.tmp_dir}'
-#        subprocess.check_output(cmd)
-        
-        # compress begin (compress each one and then to one)
-        for file in glob.glob(os.path.join(self.tmp_dir, "*")):
-            per_outname = file + ".tar.gz"
-            print(per_outname, file)
-            cmd = f'tar zcvf {per_outname} {file}'
-            subprocess.check_output(cmd, shell=True)
-            os.remove(file)
-        cmd = f'tar zcvf {gzip_file_name} {self.tmp_dir}'
-        subprocess.check_output(cmd, shell=True)  
-
-        
-    def zip_file(self, outname, filename, tmp_dir, para_df=None, delete_tmp=True):
-        self.outname = outname
-        self.tmp_dir = tmp_dir
-        self.para_df = para_df.fillna("")
-        
-        if self.level == 1:
-            self.compress_all()
-        elif self.level == 2 or self.level==3:
-            self.compress_normal()
-            self.compress_content()
-            
-        t1 = time.time()
-        self.__kernel_compress()
-        t2 = time.time()
-        self.packing_time += t2 - t1
 
         
 def __zip_file(filepath, tmp_dir, log_format, outname, level=3, top_event=2000, kernel="gz"):
@@ -293,8 +251,11 @@ def __zip_file(filepath, tmp_dir, log_format, outname, level=3, top_event=2000, 
     structured_log = parser.parse(filepath)
     
     zipper = Ziplog(outdir=outdir, kernel=kernel, level=level)
-    zipper.zip_file(outname=outname, filename=filepath, tmp_dir=tmp_dir,
-                    para_df=structured_log)
+    
+    #        tmp_dir, outname, filename, para_file_path=None, para_df=None, delete_tmp=True):
+    
+    zipper.zip_file(tmp_dir=tmp_dir, outname=outname,
+                    para_df=structured_log, delete_tmp=False)
     
 
 def zip_file(filepath, outdir, log_format, n_workers=2, level=3, top_event=2000, kernel="gz", report_file="./report.csv"):
@@ -369,8 +330,12 @@ def logzip(logfile, outdir, log_format, n_workers=1,
     except:
         pass
 
+
     outname = os.path.basename(logfile) + ".logzip"
     if args and args["subprocess"]:
+    
+
+    
         __zip_file(args["file"], args["tmp_dir"], args["log_format"], outname=outname)
     else:
         zip_file(logfile, outdir, log_format, n_workers=n_workers,
