@@ -1,5 +1,7 @@
 #！/bin/bash
 
+rm -rf ./*.state
+
 nohup python time_vs_nworkers.py --postfix 1g --worker 1 --dataset HDFS > HDFS_1g_1.state 2>&1 &
 sleep 2s
 nohup python time_vs_nworkers.py --postfix 1g --worker 2 --dataset HDFS > HDFS_1g_2.state 2>&1 &
@@ -41,7 +43,7 @@ nohup python time_vs_nworkers.py --postfix 1g --worker 16 --dataset HDFS > HDFS_
 sleep 15m
 
 nohup python time_vs_nworkers.py --postfix 1g --worker 8 --dataset Andriod > Andriod_1g_8.state 2>&1 &
-sleep 2s
+sleep 2
 nohup python time_vs_nworkers.py --postfix 1g --worker 16 --dataset Andriod > Andriod_1g_16.state 2>&1 &
 
 sleep 10m
