@@ -75,4 +75,5 @@ sleep 5m
 nohup python time_vs_nworkers.py --postfix 1g --worker 32 --dataset HDFS > HDFS_1g_32.state 2>&1 &
 sleep 5m
 nohup python time_vs_nworkers.py --postfix 1g --worker 32 --dataset Spark > Spark_1g_32.state 2>&1 &
+sleep 5m
 

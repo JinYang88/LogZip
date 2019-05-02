@@ -253,7 +253,7 @@ class Ziplog():
         gzip_file_name = os.path.join(self.outdir, \
                                   "{}.tar.{}".format(self.outname, self.kernel))
         cmd = f'tar zcvf {gzip_file_name} {self.tmp_dir}'
-        subprocess.check_output(cmd)
+        subprocess.check_output(cmd, shell=True)
         
         # compress begin (compress each one and then to one)
 #        for file in glob.glob(os.path.join(self.tmp_dir, "*")):
@@ -325,7 +325,6 @@ def zip_file(filepath, outdir, log_format, n_workers=2, level=3, top_event=2000,
                 ' --subprocess True --tmp_dir {}').format(script_path, file, log_format,
                                               os.path.join(tmp_dir, str(idx)))
         print(cmd)
-        time.sleep(10)
         processes.append(subprocess.Popen(cmd, stderr=subprocess.STDOUT, shell=True))
     [p.wait() for p in processes]
 #        processes.append(subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True))
