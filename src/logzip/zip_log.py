@@ -367,7 +367,7 @@ def zip_file(filepath, outdir, log_format, n_workers=2,
     with open(report_file, "a+") as fw:
         if firstline:
             fw.write("timemark,logname,original_size,compressed_size,compress_ratio,time_taken,n_workers\n")
-        fw.write(f"{timemark},{logname},{original_size},{compressed_size},{compress_ratio},{total_time_taken},{n_workers}\n")
+        fw.write(f"{timemark},{logname},{original_size},{compressed_size},{compress_ratio},{total_time_taken},{n_workers}, {compress_single}\n")
 
 
 
