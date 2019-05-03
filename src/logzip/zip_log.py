@@ -27,6 +27,11 @@ import argparse
 split_chars = "([\.\-_\:\,\*&#@|{}() $]+)"
 split_regex = re.compile(split_chars)
 
+def boolean_string(s):
+    if s not in {'False', 'True'}:
+        raise ValueError('Not a valid boolean string')
+    return s == 'True'
+
 def split_item(astr):
     return split_regex.split(astr)
 
@@ -66,11 +71,12 @@ def get_FileSize(filePath, unit="kb"):
 
 
 class Ziplog():
-    def __init__(self, outdir, kernel="gz", level=3):
+    def __init__(self, outdir, kernel="gz", level=3, compress_single=False):
         self.outdir = outdir
         self.kernel = kernel
         self.level = level
-        
+        self.compress_single = compress_single        
+
         self.transpose_time = 0
         self.packing_time = 0
         self.field_extraction_time = 0
@@ -102,9 +108,7 @@ class Ziplog():
         t1 = time.time()
         for idx, colname in enumerate(focus_columns):
             max_col_num = len( sorted(splited_columns[idx], key=lambda x: len(x))[-1] )
-            file_writers = [open( os.path.join(self.tmp_dir, f"{colname}_{sub_idx}.csv"), "w")
-                            for sub_idx in range(max_col_num)]
-            buffers = [[] for _ in file_writers]
+            buffers = [[] for _ in range(max_col_num)]
             for row in splited_columns[idx]:
                 lrow = len(row)
                 for col_idx in range(max_col_num):
@@ -112,8 +116,9 @@ class Ziplog():
                         buffers[col_idx].append(row[col_idx] + "\n")
                     else:
                         buffers[col_idx].append("\n")
-            [fw.writelines(buffers[idx]) for idx, fw in enumerate(file_writers)]
-            [fw.close() for fw in file_writers]
+            for sub_idx in range(max_col_num):
+                with open( os.path.join(self.tmp_dir, f"{colname}_{sub_idx}.csv"), "w") as fw:
+                    fw.writelines(buffers[sub_idx])
         self.file_normal_column_dict["EventId_0"] = self.para_df["EventId"]
         t2 = time.time()
         self.transpose_time += t2 - t1
@@ -246,24 +251,28 @@ class Ziplog():
         with open(os.path.join(self.tmp_dir, "template_mapping.json"), "w") as fw:
             json.dump(self.template_mapping, fw)
 
-        with open(os.path.join(self.tmp_dir, "parameter_mapping.json"), "w") as fw:
-            json.dump(self.index_para_dict, fw)        
+        if self.level==3:
+            with open(os.path.join(self.tmp_dir, "parameter_mapping.json"), "w") as fw:
+                json.dump(self.index_para_dict, fw)        
 
-        # compress begin (compress all into one)
         gzip_file_name = os.path.join(self.outdir, \
                                   "{}.tar.{}".format(self.outname, self.kernel))
-        cmd = f'tar zcvf {gzip_file_name} {self.tmp_dir}'
-        subprocess.check_output(cmd, shell=True)
         
-        # compress begin (compress each one and then to one)
-#        for file in glob.glob(os.path.join(self.tmp_dir, "*")):
-#            per_outname = file + ".tar.gz"
-#            print(per_outname, file)
-#            cmd = f'tar zcvf {per_outname} {file}'
-#            subprocess.check_output(cmd, shell=True)
-#            os.remove(file)
-#        cmd = f'tar zcvf {gzip_file_name} {self.tmp_dir}'
-#        subprocess.check_output(cmd, shell=True)  
+        # compress begin (compress all into one)
+        
+        if not self.compress_single:
+            cmd = f'tar zcvf {gzip_file_name} {self.tmp_dir}'
+            subprocess.check_output(cmd, shell=True)
+        else:
+    #        # compress begin (compress each one and then to one)
+            for file in glob.glob(os.path.join(self.tmp_dir, "*")):
+                per_outname = file + ".tar.gz"
+                print(per_outname, file)
+                cmd = f'tar zcvf {per_outname} {file}'
+                subprocess.check_output(cmd, shell=True)
+                os.remove(file)
+            cmd = f'tar zcvf {gzip_file_name} {self.tmp_dir}'
+            subprocess.check_output(cmd, shell=True)  
 
         
     def zip_file(self, outname, filename, tmp_dir, para_df=None, delete_tmp=True):
@@ -283,21 +292,24 @@ class Ziplog():
         self.packing_time += t2 - t1
 
         
-def __zip_file(filepath, tmp_dir, log_format, outname, level=3, top_event=2000, kernel="gz"):
+def __zip_file(filepath, tmp_dir, log_format, outname, level=3,
+               top_event=2000, kernel="gz", compress_single=False):
     print("Tmp files are in {}".format(tmp_dir))
     if not os.path.isdir(tmp_dir):
         os.makedirs(tmp_dir)
         
     outdir = tmp_dir # output to current tmp dir
     parser = NaiveParser.LogParser(tmp_dir, outdir, log_format, n_workers=1, top_event=top_event)
-    structured_log = parser.parse(filepath)
+    structured_log = parser.parse(filepath, dump=False)
     
-    zipper = Ziplog(outdir=outdir, kernel=kernel, level=level)
+    zipper = Ziplog(outdir=outdir, kernel=kernel, level=level, compress_single=compress_single)
     zipper.zip_file(outname=outname, filename=filepath, tmp_dir=tmp_dir,
                     para_df=structured_log)
     
 
-def zip_file(filepath, outdir, log_format, n_workers=2, level=3, top_event=2000, kernel="gz", report_file="./report.csv"):
+def zip_file(filepath, outdir, log_format, n_workers=2,
+             level=3, top_event=2000, kernel="gz", compress_single=False,
+             report_file="./report.csv"):
     time_start = time.time()
 
     # new tmp dirs
@@ -322,8 +334,8 @@ def zip_file(filepath, outdir, log_format, n_workers=2, level=3, top_event=2000,
     for idx, file in enumerate(glob.glob(os.path.join(tmp_dir, "tmplog_*"))):
         script_path = os.path.abspath(__file__)
         cmd = ('python {} --file {} --log_format "{}"'+ \
-                ' --subprocess True --tmp_dir {}').format(script_path, file, log_format,
-                                              os.path.join(tmp_dir, str(idx)))
+                ' --subprocess True --tmp_dir {} --compress_single {}').format(script_path, file, log_format,
+                                              os.path.join(tmp_dir, str(idx)), compress_single)
         print(cmd)
         processes.append(subprocess.Popen(cmd, stderr=subprocess.STDOUT, shell=True))
     [p.wait() for p in processes]
@@ -338,8 +350,7 @@ def zip_file(filepath, outdir, log_format, n_workers=2, level=3, top_event=2000,
         shutil.move(sub_outfile, dst)
         compressed_size += get_FileSize(dst, "mb")
 
-    
-    [os.remove(chunk) for chunk in glob.glob(os.path.join(tmp_dir, "tmplog_*"))]
+#    [os.remove(chunk) for chunk in glob.glob(os.path.join(tmp_dir, "tmplog_*"))]
     original_size = get_FileSize(filepath, "mb")
     compress_ratio = round(original_size / compressed_size, 2)
 
@@ -357,24 +368,26 @@ def zip_file(filepath, outdir, log_format, n_workers=2, level=3, top_event=2000,
 
 
 def logzip(logfile, outdir, log_format, n_workers=1,
-                 level=3, top_event=2000, kernel="gz", report_file='./report.csv'):
+                 level=3, top_event=2000, kernel="gz", report_file='./report.csv', compress_single=False):
     args = None
     try:
         parser = argparse.ArgumentParser()
         parser.add_argument('--file', type=str, default="../logs/HDFS_2k.log")
         parser.add_argument('--log_format', type=str, default="")
         parser.add_argument('--tmp_dir', type=str, default="")
-        parser.add_argument('--subprocess', type=bool, default=False)
+        parser.add_argument('--subprocess', type=boolean_string, default=False)
+        parser.add_argument('--compress_single', type=boolean_string, default=False)
         args = vars(parser.parse_args())
     except:
         pass
 
     outname = os.path.basename(logfile) + ".logzip"
     if args and args["subprocess"]:
-        __zip_file(args["file"], args["tmp_dir"], args["log_format"], outname=outname)
+        __zip_file(args["file"], args["tmp_dir"], args["log_format"], outname=outname, level=level, top_event=top_event,
+                   kernel=kernel, compress_single=args["compress_single"])
     else:
         zip_file(logfile, outdir, log_format, n_workers=n_workers,
-                 level=level, top_event=top_event, kernel=kernel, report_file=report_file)
+                 level=level, top_event=top_event, kernel=kernel, report_file=report_file, compress_single=compress_single)
     
 if __name__ == "__main__":
     import NaiveParser
@@ -382,11 +395,12 @@ if __name__ == "__main__":
     logfile       = "../../logs/HDFS_2k.log"  # Raw log file."
     outdir        = "../../zip_out/"  # Output directory, if not exists, it will be created.
     log_format    = '<Date> <Time> <Pid> <Level> <Component>: <Content>'  # Log format to extract fields.
-    n_workers     = 2
+    n_workers     = 1
     level         = 3
     top_event     = 2000
     kernel        = "gz"
+    compress_single = True
     report_file   = "./report.csv"
         
     logzip(logfile, outdir, log_format, n_workers=n_workers,
-                 level=level, top_event=top_event, kernel=kernel, report_file=report_file)
+                 level=level, top_event=top_event, kernel=kernel, report_file=report_file, compress_single=compress_single)
