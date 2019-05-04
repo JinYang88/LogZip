@@ -89,21 +89,7 @@ class Ziplog():
         ignore_columns = ["LineId", "EventTemplate", "ParameterList", "EventId", "Content"]
         focus_columns = [col for col in self.para_df.columns if col not in ignore_columns]
         
-        if self.n_workers == 1:
-            splited_columns = split_normal(self.para_df[focus_columns])
-        else:
-            chunk_size = min(1000000, self.para_df.shape[0] // self.n_workers)
-            result_chunks = []
-            pool = mp.Pool(processes=self.n_workers)
-            result_chunks = [pool.apply_async(split_normal,\
-                            args=(self.para_df[focus_columns].iloc[i:i+chunk_size],))
-                            for i in range(0, self.para_df.shape[0], chunk_size)]
-            pool.close()
-            pool.join()
-            splited_columns = [[] for _ in range(len(focus_columns))] 
-            for result in result_chunks:
-                for idx, col in enumerate(result.get()):
-                    splited_columns[idx].extend(col)
+        splited_columns = split_normal(self.para_df[focus_columns])
 
         self.para_df.drop(focus_columns, axis=1,inplace=True)
         
@@ -160,19 +146,7 @@ class Ziplog():
                                     ["EventId","ParameterList"]]
         del self.para_df
         
-        if self.n_workers == 1:
-            splitted_para = split_para(focus_df["ParameterList"])
-        else:
-            chunk_size = min(1000000, 1 + focus_df.shape[0] // self.n_workers)
-            result_chunks = []
-            pool = mp.Pool(processes=self.n_workers)
-            result_chunks = [pool.apply_async(split_para,\
-                             args=(focus_df["ParameterList"].iloc[i:i+chunk_size],))
-                             for i in range(0, focus_df.shape[0], chunk_size)]
-            pool.close()
-            pool.join()
-            splitted_para = []
-            [splitted_para.extend(_.get()) for _ in result_chunks]
+        splitted_para = split_para(focus_df["ParameterList"])
 
         focus_df["ParameterList"] = splitted_para
         
@@ -237,17 +211,17 @@ class Ziplog():
 #        self.compress_single
         ## compress begin 
         if self.kernel in set(["gz", "bz2"]):
-            allfiles = glob.glob(os.path.join(self.tmp_dir, "*.csv"))\
+            raw_files = glob.glob(os.path.join(self.tmp_dir, "*.csv"))\
                         + glob.glob(os.path.join(self.tmp_dir, "*.json"))
             tarall = tarfile.open(os.path.join(self.outdir, \
                                     "{}.tar.{}".format(self.outname, self.kernel)),\
                                     "w:{}".format(self.kernel))
             if self.compress_single:
-                files_to_tar(allfiles)
+                files_to_tar(raw_files)
                 files = glob.glob(os.path.join(self.tmp_dir,\
                                           "*.tar.{}".format(self.kernel)))
             else:
-                files = allfiles
+                files = raw_files
                 
             for idx, filepath in enumerate(files, 1):
                 tarall.add(filepath, arcname=os.path.basename(filepath))
@@ -283,7 +257,7 @@ def main():
         parser.add_argument('--tmp_dir', type=str, default="../../zip_out/tmp_dir")
         parser.add_argument('--out_dir', type=str, default="../../zip_out/")
         parser.add_argument('--compress_single', type=boolean_string, default=False)
-        parser.add_argument('--n_workers', type=int, default=1)
+        parser.add_argument('--n_workers', type=int, default=3)
         parser.add_argument('--level', type=int, default=3)
         parser.add_argument('--top_event', type=int, default=2000)        
         parser.add_argument('--kernel', type=str, default="gz")
