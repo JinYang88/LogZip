@@ -100,7 +100,7 @@ if __name__ == "__main__":
     logfile       = "../../logs/HDFS_2k.log"  # Raw log file."
     outdir        = "../../zip_out/"  # Output directory, if not exists, it will be created.
     log_format    = '<Date> <Time> <Pid> <Level> <Component>: <Content>'  # Log format to extract fields.
-    n_workers     = 3
+    n_workers     = 1
     level         = 3
     top_event     = 2000
     kernel        = "gz"
