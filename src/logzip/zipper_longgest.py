@@ -234,17 +234,22 @@ class Ziplog():
         ## output end
         
         
-        ## compress begin
-        if self.kernel == "gz":
+#        self.compress_single
+        ## compress begin 
+        if self.kernel in set(["gz", "bz2"]):
             allfiles = glob.glob(os.path.join(self.tmp_dir, "*.csv"))\
                         + glob.glob(os.path.join(self.tmp_dir, "*.json"))
-            files_to_tar(allfiles)
-            
             tarall = tarfile.open(os.path.join(self.outdir, \
                                     "{}.tar.{}".format(self.outname, self.kernel)),\
                                     "w:{}".format(self.kernel))
-            for idx, filepath in enumerate(glob.glob(os.path.join(self.tmp_dir,\
-                                          "*.tar.{}".format(self.kernel))), 1):
+            if self.compress_single:
+                files_to_tar(allfiles)
+                files = glob.glob(os.path.join(self.tmp_dir,\
+                                          "*.tar.{}".format(self.kernel)))
+            else:
+                files = allfiles
+                
+            for idx, filepath in enumerate(files, 1):
                 tarall.add(filepath, arcname=os.path.basename(filepath))
             tarall.close()
         ## compress end
