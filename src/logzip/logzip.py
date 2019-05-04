@@ -97,7 +97,7 @@ def zip_file(filepath, outdir, log_format, n_workers=2,
 
 
 if __name__ == "__main__":
-    logfile       = "../../logs/HDFS_100MB.log"  # Raw log file."
+    logfile       = "../../logs/HDFS_2k.log"  # Raw log file."
     outdir        = "../../zip_out/"  # Output directory, if not exists, it will be created.
     log_format    = '<Date> <Time> <Pid> <Level> <Component>: <Content>'  # Log format to extract fields.
     n_workers     = 3

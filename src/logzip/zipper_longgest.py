@@ -286,11 +286,14 @@ def main():
     if not os.path.isdir(out_dir):
         os.makedirs(out_dir)
         
+    parse_begin_time = time.time()
     parser = NaiveParser.LogParser(tmp_dir, out_dir,
                                    log_format,
                                    top_event=top_event)
     structured_log = parser.parse(filepath, dump=False)
+    parse_end_time = time.time()    
     
+    print("Parser cost [{:.3f}s]".format(parse_end_time-parse_begin_time))
    
         
     zipper = Ziplog(outdir=out_dir,
