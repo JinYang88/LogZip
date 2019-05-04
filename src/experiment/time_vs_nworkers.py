@@ -3,7 +3,8 @@ import sys
 import os
 import argparse
 sys.path.append("../")
-from logzip.zip_log import logzip
+#import logzip
+from logzip.logzip import zip_file
 
 
 outdir        = "../../zip_out/"  # Output directory, if not exists, it will be created.
@@ -37,5 +38,6 @@ dataset = args["dataset"]
 compress_single = args["compress_single"]
 
 logfile = os.path.join("../../logs", f"{dataset}_{postfix}.log")
-logzip(logfile, outdir, log_format_dict[dataset], n_workers=n_workers,
-             level=level, top_event=top_event, kernel=kernel, report_file=report_file, compress_single=compress_single)
+zip_file(logfile, outdir, log_format_dict[dataset], n_workers=n_workers,
+             level=level, top_event=top_event, kernel=kernel,
+             compress_single=compress_single)
