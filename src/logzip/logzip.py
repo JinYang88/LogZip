@@ -62,7 +62,7 @@ def zip_file(filepath, outdir, log_format, n_workers=2,
     # run subprocesses
     processes = []
     for idx, file in enumerate(sorted(glob.glob(os.path.join(tmp_dir, f"{logname}_*")))):
-        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zipper.py")
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zipper_longgest.py")
         per_tmp_dir = os.path.join(tmp_dir, str(idx))
         cmd = ('python {} --file {} --log_format "{}"'+ \
                 ' --tmp_dir {} --out_dir {} --compress_single {} --n_workers {}') \
