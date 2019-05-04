@@ -3,7 +3,6 @@ import sys
 import os
 import argparse
 sys.path.append("../")
-#import logzip
 from logzip.logzip import zip_file
 
 
