@@ -39,3 +39,4 @@ python time_vs_nworkers.py --compress_single True --postfix 1g --worker 4 --data
 python time_vs_nworkers.py --compress_single True --postfix 1g --worker 8 --dataset Windows > Windows_1g_8.statet 2>&1
 python time_vs_nworkers.py --compress_single True --postfix 1g --worker 16 --dataset Windows > Windows_1g_16.statet 2>&1
 python time_vs_nworkers.py --compress_single True --postfix 1g --worker 32 --dataset Windows > Windows_1g_32.statet 2>&1
+
