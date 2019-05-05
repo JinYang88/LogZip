@@ -150,6 +150,7 @@ class Ziplog():
         
         splitted_para = split_para(focus_df["ParameterList"])
 
+        
         focus_df["ParameterList"] = splitted_para
         
         self.__pack_params(focus_df)
@@ -337,6 +338,7 @@ def main():
     matcher_end_time = time.time()    
     print("Matcher cost [{:.3f}s]".format(matcher_end_time-matcher_begin_time))
 
+    print(structured_log.head())
 
 #    print(structured_log.head())
 #    parse_begin_time = time.time()
