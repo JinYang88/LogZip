@@ -73,7 +73,7 @@ class PatternMatch(object):
         log_dataframe['ParameterList'] = log_dataframe['Content'].map(lambda x: match_dict[x][1])
         self.id_map = {tmp:"E"+str(idx) for idx, tmp in enumerate(log_dataframe['EventTemplate'].unique(), 1)} 
         log_dataframe['EventId'] = log_dataframe['EventTemplate'].map(lambda x: self.id_map[x])
-        self._dump_match_result(os.path.basename(log_filepath), log_dataframe)
+#        self._dump_match_result(os.path.basename(log_filepath), log_dataframe)
         match_rate = sum(log_dataframe['EventTemplate'] != 'NoMatch') / float(len(log_dataframe))
         print('Matching done, matching rate: {:.1%} [Time taken: {!s}]'.format(match_rate, datetime.now() - start_time))
         return log_dataframe
@@ -184,13 +184,13 @@ def find_template(move_tree, log_tokens, result, parameter_list):
     if len(log_tokens) == 0:
         for key, value in move_tree.items():
             if isinstance(value, tuple):
-                result.append((key, value, str(parameter_list)))
+                result.append((key, value, parameter_list))
         if "<*>" in move_tree:
             parameter_list.append("")
             move_tree = move_tree["<*>"]
             for key, value in move_tree.items():
                 if isinstance(value, tuple):
-                    result.append((key, value, str(parameter_list)))
+                    result.append((key, value, parameter_list))
         return
     token = log_tokens[0]
 

@@ -45,6 +45,7 @@ def split_item(astr):
     return split_regex.split(astr)
 
 def split_list(alist):
+#    print(alist)
     return list(map(split_item, alist))
 
 def split_para(seires):
@@ -253,7 +254,7 @@ def main():
     args = None
     try:
         parser = argparse.ArgumentParser()
-        parser.add_argument('--file', type=str, default="../../logs/HDFS_100MB.log")
+        parser.add_argument('--file', type=str, default="../../logs/HDFS_2k.log")
         parser.add_argument('--log_format', type=str, default="<Date> <Time> <Pid> <Level> <Component>: <Content>")
         parser.add_argument('--tmp_dir', type=str, default="../../zip_out/tmp_dir")
         parser.add_argument('--out_dir', type=str, default="../../zip_out/")
@@ -295,7 +296,7 @@ def main():
     
     line_num = subprocess.check_output("wc -l {}".format(filepath), shell=True)
     line_num = int(line_num.split()[0])
-    sample_num = max(int(line_num * sample_ratio), 10000)
+    sample_num = 10000
     sample_file_path = filepath + ".sample"
     try:
         subprocess.check_output("gshuf -n{} {} > {}".format(sample_num, filepath,
@@ -339,7 +340,7 @@ def main():
 
 #    print(structured_log.head())
 #    parse_begin_time = time.time()
-#    parser = NaiveParser.LogParser(tmp_dir, out_dir,
+#    parser = NaiveParser.LogParser(tmp_dira, out_dir,
 #                                   log_format,
 #                                   top_event=top_event)
 #    structured_log = parser.parse(filepath, dump=False)
