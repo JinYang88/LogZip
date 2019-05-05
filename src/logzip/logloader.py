@@ -34,7 +34,6 @@ import io
 import time
 
 class LogLoader(object):
-
     def __init__(self, logformat, tmp_dir, n_workers=1):
         if not logformat:
             raise RuntimeError('Logformat is required!')

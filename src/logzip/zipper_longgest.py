@@ -30,7 +30,8 @@ import pickle
 import subprocess
 import argparse
 import numpy as np
-
+from logparser import Drain
+from matcher import treematch
     
 
 def boolean_string(s):
@@ -285,15 +286,41 @@ def main():
         os.makedirs(tmp_dir)
     if not os.path.isdir(out_dir):
         os.makedirs(out_dir)
-        
-    parse_begin_time = time.time()
-    parser = NaiveParser.LogParser(tmp_dir, out_dir,
-                                   log_format,
-                                   top_event=top_event)
-    structured_log = parser.parse(filepath, dump=False)
-    parse_end_time = time.time()    
     
-    print("Parser cost [{:.3f}s]".format(parse_end_time-parse_begin_time))
+    
+    """
+    1. get template file  
+    """
+    st         = 0.5  # Similarity threshold
+    depth      = 4  # Depth of all leaf nodes
+    regex      = [
+    r'blk_(|-)[0-9]+' , # block id
+    r'(/|)([0-9]+\.){3}[0-9]+(:[0-9]+|)(:|)', # IP
+    r'(?<=[^A-Za-z0-9])(\-?\+?\d+)(?=[^A-Za-z0-9])|[0-9]+$', # Numbers
+    ]
+    
+    
+    parser = Drain.LogParser(log_format, outdir=out_dir,  depth=depth, st=st, rex=regex)
+    templates = parser.parse(filepath)
+    
+#    print(templates)
+    
+    """
+    # 2. match and get structured log
+    """
+    matcher = treematch.PatternMatch(tmp_dir=tmp_dir, outdir=out_dir, logformat=log_format)
+    structured_log = matcher.match(filepath, templates)
+    
+#    print(structured_log.head())
+    
+#    parse_begin_time = time.time()
+#    parser = NaiveParser.LogParser(tmp_dir, out_dir,
+#                                   log_format,
+#                                   top_event=top_event)
+#    structured_log = parser.parse(filepath, dump=False)
+#    parse_end_time = time.time()    
+    
+#    print("Parser cost [{:.3f}s]".format(parse_end_time-parse_begin_time))
    
         
     zipper = Ziplog(outdir=out_dir,
@@ -305,7 +332,7 @@ def main():
                     n_workers=n_workers)
     
     zipper.zip_file(para_df=structured_log)
-    
+#    
     
 if __name__ == "__main__":
     import NaiveParser
