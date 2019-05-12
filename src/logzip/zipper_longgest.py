@@ -333,7 +333,7 @@ def main():
     
     matcher_begin_time = time.time()
     with open(template_file) as fr:
-        templates = fr.readlines(template_file)
+        templates = [item.strip() for item in fr.readlines()]
     matcher = treematch.PatternMatch(tmp_dir=tmp_dir, outdir=out_dir, logformat=log_format)
     structured_log = matcher.match(filepath, templates)
     matcher_end_time = time.time()    

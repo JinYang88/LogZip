@@ -60,7 +60,7 @@ def zip_file(filepath, outdir, log_format, template_file="", n_workers=2,
         
         line_num = subprocess.check_output("wc -l {}".format(filepath), shell=True)
         line_num = int(line_num.split()[0])
-        sample_num = 10000
+        sample_num = 50000
         sample_file_path = filepath + ".sample"
         try:
             subprocess.check_output("gshuf -n{} {} > {}".format(sample_num, filepath,
@@ -85,9 +85,9 @@ def zip_file(filepath, outdir, log_format, template_file="", n_workers=2,
         templates = parser.parse(sample_file_path)
         os.remove(sample_file_path)
         parse_end_time = time.time()
-        template_file = os.path.join(sample_file_path, "log_templates.csv")
+        template_file = os.path.join(tmp_dir, "log_templates.csv")
         with open(template_file, "w") as fw:
-            fw.writelines(templates)
+            [fw.write(item+"\n") for item in templates]
         print("Parser cost [{:.3f}s]".format(parse_end_time-parse_begin_time))
     
     
