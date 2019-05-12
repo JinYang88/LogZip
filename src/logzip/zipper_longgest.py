@@ -257,6 +257,7 @@ def main():
         parser = argparse.ArgumentParser()
         parser.add_argument('--file', type=str, default="../../logs/HDFS_2k.log")
         parser.add_argument('--log_format', type=str, default="<Date> <Time> <Pid> <Level> <Component>: <Content>")
+        parser.add_argument('--template_file', type=str, default="")
         parser.add_argument('--tmp_dir', type=str, default="../../zip_out/tmp_dir")
         parser.add_argument('--out_dir', type=str, default="../../zip_out/")
         parser.add_argument('--compress_single', type=boolean_string, default=False)
@@ -274,6 +275,7 @@ def main():
     kernel = args["kernel"]
     log_format = args["log_format"]
     top_event = args["top_event"]
+    template_file = args["template_file"]
     compress_single = args["compress_single"]
     sample_ratio = args["sample_ratio"]
     n_workers = args["n_workers"]
@@ -291,48 +293,47 @@ def main():
     if not os.path.isdir(out_dir):
         os.makedirs(out_dir)
     
-    """
-    0. sampling
-    """
-    
-    line_num = subprocess.check_output("wc -l {}".format(filepath), shell=True)
-    line_num = int(line_num.split()[0])
-    sample_num = 10000
-    sample_file_path = filepath + ".sample"
-    try:
-        subprocess.check_output("gshuf -n{} {} > {}".format(sample_num, filepath,
-                            sample_file_path), shell=True)
-    except:
-        subprocess.check_output("shuf -n{} {} > {}".format(sample_num, filepath,
-                            sample_file_path), shell=True)
-    
-#    subprocess.check_output("head -{} {} > {}".format(sample_num, filepath,
+#    """
+#    0. sampling
+#    """
+#    
+#    line_num = subprocess.check_output("wc -l {}".format(filepath), shell=True)
+#    line_num = int(line_num.split()[0])
+#    sample_num = 10000
+#    sample_file_path = filepath + ".sample"
+#    try:
+#        subprocess.check_output("gshuf -n{} {} > {}".format(sample_num, filepath,
 #                            sample_file_path), shell=True)
-    
-    """
-    1. get template file  
-    """
-    st         = 0.5  # Similarity threshold
-    depth      = 4  # Depth of all leaf nodes
-    regex      = [
-    r'blk_(|-)[0-9]+' , # block id
-    r'(/|)([0-9]+\.){3}[0-9]+(:[0-9]+|)(:|)', # IP
-    r'(?<=[^A-Za-z0-9])(\-?\+?\d+)(?=[^A-Za-z0-9])|[0-9]+$', # Numbers
-    ]
-    
-    parse_begin_time = time.time()
-    parser = Drain.LogParser(log_format, outdir=out_dir,  depth=depth, st=st, rex=regex)
-    templates = parser.parse(sample_file_path)
-    os.remove(sample_file_path)
-    parse_end_time = time.time()
-    print("Parser cost [{:.3f}s]".format(parse_end_time-parse_begin_time))
-    
+#    except:
+#        subprocess.check_output("shuf -n{} {} > {}".format(sample_num, filepath,
+#                            sample_file_path), shell=True)
+#    
+##    subprocess.check_output("head -{} {} > {}".format(sample_num, filepath,
+##                            sample_file_path), shell=True)
+#    
+#    """
+#    1. get template file  
+#    """
+#    st         = 0.5  # Similarity threshold
+#    depth      = 4  # Depth of all leaf nodes
+#    regex      = [
+#    r'blk_(|-)[0-9]+' , # block id
+#    r'(/|)([0-9]+\.){3}[0-9]+(:[0-9]+|)(:|)', # IP
+#    r'(?<=[^A-Za-z0-9])(\-?\+?\d+)(?=[^A-Za-z0-9])|[0-9]+$', # Numbers
+#    ]
+#    
+#    parse_begin_time = time.time()
+#    parser = Drain.LogParser(log_format, outdir=out_dir,  depth=depth, st=st, rex=regex)
+#    templates = parser.parse(sample_file_path)
+#    os.remove(sample_file_path)
+#    parse_end_time = time.time()
+#    print("Parser cost [{:.3f}s]".format(parse_end_time-parse_begin_time))
+#    
 #    print(templates)
     
-    """
-    # 2. match and get structured log
-    """
     matcher_begin_time = time.time()
+    with open(template_file) as fr:
+        templates = fr.readlines(template_file)
     matcher = treematch.PatternMatch(tmp_dir=tmp_dir, outdir=out_dir, logformat=log_format)
     structured_log = matcher.match(filepath, templates)
     matcher_end_time = time.time()    

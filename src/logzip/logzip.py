@@ -22,6 +22,7 @@ import pickle
 import subprocess
 import argparse
 import numpy as np
+from logparser import Drain
     
 
 def boolean_string(s):
@@ -37,7 +38,7 @@ def get_FileSize(filePath, unit="kb"):
         fsize = fsize/float(1024)
     return round(fsize, 2)
 
-def zip_file(filepath, outdir, log_format, n_workers=2,
+def zip_file(filepath, outdir, log_format, template_file="", n_workers=2,
              level=3, top_event=2000, kernel="gz", compress_single=False,
              report_file="./report.csv"):
     time_start = time.time()
@@ -51,7 +52,44 @@ def zip_file(filepath, outdir, log_format, n_workers=2,
         shutil.rmtree(tmp_dir)
     if not os.path.isdir(tmp_dir):
         os.makedirs(tmp_dir)
+    
+    if not template_file:
+        """
+        0. sampling
+        """
         
+        line_num = subprocess.check_output("wc -l {}".format(filepath), shell=True)
+        line_num = int(line_num.split()[0])
+        sample_num = 10000
+        sample_file_path = filepath + ".sample"
+        try:
+            subprocess.check_output("gshuf -n{} {} > {}".format(sample_num, filepath,
+                                sample_file_path), shell=True)
+        except:
+            subprocess.check_output("shuf -n{} {} > {}".format(sample_num, filepath,
+                                sample_file_path), shell=True)
+        
+        """
+        1. get template file  
+        """
+        st         = 0.5  # Similarity threshold
+        depth      = 4  # Depth of all leaf nodes
+        regex      = [
+        r'blk_(|-)[0-9]+' , # block id
+        r'(/|)([0-9]+\.){3}[0-9]+(:[0-9]+|)(:|)', # IP
+        r'(?<=[^A-Za-z0-9])(\-?\+?\d+)(?=[^A-Za-z0-9])|[0-9]+$', # Numbers
+        ]
+        
+        parse_begin_time = time.time()
+        parser = Drain.LogParser(log_format, outdir=tmp_dir,  depth=depth, st=st, rex=regex)
+        templates = parser.parse(sample_file_path)
+        os.remove(sample_file_path)
+        parse_end_time = time.time()
+        template_file = os.path.join(sample_file_path, "log_templates.csv")
+        with open(template_file, "w") as fw:
+            fw.writelines(templates)
+        print("Parser cost [{:.3f}s]".format(parse_end_time-parse_begin_time))
+    
     
     # split files
     kb_per_chunk = int(get_FileSize(filepath) // n_workers) + 1
@@ -64,9 +102,9 @@ def zip_file(filepath, outdir, log_format, n_workers=2,
     for idx, file in enumerate(sorted(glob.glob(os.path.join(tmp_dir, f"{logname}_*")))):
         script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zipper_longgest.py")
         per_tmp_dir = os.path.join(tmp_dir, str(idx))
-        cmd = ('python {} --file {} --log_format "{}"'+ \
+        cmd = ('python {} --file {} --log_format "{}" --template_file {}'+ \
                 ' --tmp_dir {} --out_dir {} --compress_single {} --n_workers {}') \
-                                            .format(script_path, file, log_format,
+                                            .format(script_path, file, log_format, template_file,
                                               per_tmp_dir, per_tmp_dir,
                                               compress_single, n_workers)
         print(cmd)
@@ -106,9 +144,11 @@ if __name__ == "__main__":
     kernel        = "gz"
     compress_single = True
     report_file   = "./report.csv"
+    template_file = ""
              
-             
-    zip_file(logfile, outdir, log_format, n_workers=n_workers,
+    zip_file(logfile, outdir, log_format,
+                 template_file=template_file,
+                 n_workers=n_workers,
                  level=level,
                  top_event=top_event,
                  kernel=kernel,
