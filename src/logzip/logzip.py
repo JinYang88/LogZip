@@ -1,27 +1,10 @@
-import zlib
-import pandas as pd
 import sys
+sys.path.append("../logzip/")
 import os
-import tarfile
 import glob
-import multiprocessing as mp
-import re
-import json
-import pickle
 import time
-import itertools
 import shutil
-import lzma
-import gc
-from io import StringIO
-import gzip
-from collections import defaultdict
-from itertools import zip_longest
-from itertools import islice
-import pickle
 import subprocess
-import argparse
-import numpy as np
 from logparser import Drain
     
 
