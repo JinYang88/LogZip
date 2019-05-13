@@ -39,7 +39,7 @@ def get_FileSize(filePath, unit="kb"):
     return round(fsize, 2)
 
 def zip_file(filepath, outdir, log_format, template_file="", n_workers=2,
-             level=3, top_event=2000, kernel="gz", compress_single=False,
+             level=3, lossy=False, top_event=2000, kernel="gz", compress_single=False,
              report_file="./report.csv"):
     time_start = time.time()
 
@@ -102,9 +102,9 @@ def zip_file(filepath, outdir, log_format, template_file="", n_workers=2,
     for idx, file in enumerate(sorted(glob.glob(os.path.join(tmp_dir, f"{logname}_*")))):
         script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "zipper_longgest.py")
         per_tmp_dir = os.path.join(tmp_dir, str(idx))
-        cmd = ('python {} --file {} --log_format "{}" --template_file {}'+ \
+        cmd = ('python {} --file {} --log_format "{}" --level {} --lossy {} --template_file {}'+ \
                 ' --tmp_dir {} --out_dir {} --compress_single {} --n_workers {}') \
-                                            .format(script_path, file, log_format, template_file,
+                                            .format(script_path, file, log_format, level, lossy, template_file,
                                               per_tmp_dir, per_tmp_dir,
                                               compress_single, n_workers)
         print(cmd)
@@ -135,7 +135,7 @@ def zip_file(filepath, outdir, log_format, template_file="", n_workers=2,
 
 
 if __name__ == "__main__":
-    logfile       = "../../logs/HDFS_100MB.log"  # Raw log file."
+    logfile       = "../../logs/HDFS_2k.log"  # Raw log file."
     outdir        = "../../zip_out/"  # Output directory, if not exists, it will be created.
     log_format    = '<Date> <Time> <Pid> <Level> <Component>: <Content>'  # Log format to extract fields.
     n_workers     = 3
@@ -143,6 +143,7 @@ if __name__ == "__main__":
     top_event     = 2000
     kernel        = "gz"
     compress_single = True
+    lossy = True
     report_file   = "./report.csv"
     template_file = ""
              
@@ -152,5 +153,6 @@ if __name__ == "__main__":
                  level=level,
                  top_event=top_event,
                  kernel=kernel,
+                 lossy=lossy,
                  compress_single=compress_single,
                  report_file=report_file)

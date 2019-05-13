@@ -64,12 +64,13 @@ def baseN(num, b):
 
 
 class Ziplog():
-    def __init__(self, outdir, outname, kernel="gz", tmp_dir="", level=3, n_workers=1, compress_single=True):
+    def __init__(self, outdir, outname, kernel="gz", tmp_dir="", level=3, lossy=False, n_workers=1, compress_single=True):
         self.outdir = outdir
         self.outname = outname
         self.kernel = kernel
         self.io_time = 0
         self.level = level
+        self.lossy = lossy
         self.tmp_dir = tmp_dir
         self.n_workers = n_workers
         self.compress_single =compress_single
@@ -194,7 +195,7 @@ class Ziplog():
             
             
         ## output begin
-        if self.level==3:
+        if self.level==3 and not self.lossy:
             with open(os.path.join(self.tmp_dir, "parameter_mapping.json"), "w") as fw:
                     json.dump(self.index_para_dict, fw)
         if self.level > 1:
@@ -204,7 +205,8 @@ class Ziplog():
         if self.level == 1:
             output_dict(self.file_all_column_dict)
         elif self.level == 2 or self.level == 3:
-            output_dict(self.file_para_dict)
+            if not self.lossy:
+                output_dict(self.file_para_dict)
             output_dict(self.file_normal_column_dict)
         else:
             raise RuntimeError(f"The level {self.level} is illegal!")
@@ -266,6 +268,7 @@ def main():
         parser.add_argument('--top_event', type=int, default=2000)        
         parser.add_argument('--kernel', type=str, default="gz")
         parser.add_argument('--sample_ratio', type=float, default=0.01)
+        parser.add_argument('--lossy', type=boolean_string, default=True)
         args = vars(parser.parse_args())
     except Exception as e:
         print(e)
@@ -282,6 +285,7 @@ def main():
     level = args["level"]
     tmp_dir = args["tmp_dir"]
     out_dir = args["out_dir"]
+    lossy = args["lossy"]
     
     
     logname = os.path.basename(filepath)
@@ -355,6 +359,7 @@ def main():
                     kernel=kernel,
                     tmp_dir=tmp_dir,
                     level=level,
+                    lossy=lossy,
                     compress_single=compress_single,
                     n_workers=n_workers)
     
